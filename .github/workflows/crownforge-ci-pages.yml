@@ -16,12 +16,12 @@ concurrency:
 
 jobs:
   fast-tests:
-    name: Engine, rules and immutable-board tests
+    name: Engine, rules, immutable-board and premium-layer tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify fixed orientation and immutable 8x8 geometry
+      - name: Verify fixed orientation, immutable geometry and isolated premium layer
         shell: bash
         run: |
           node --check src/app-stable.js
@@ -34,9 +34,28 @@ jobs:
           grep -q 'dataset.geometryLocked = "true"' src/app-stable.js
           grep -q 'grid-template-columns: repeat(8' board-geometry-lock.css
           grep -q 'grid-template-rows: repeat(8' board-geometry-lock.css
-          grep -q 'board-geometry-lock.css?v=9' index.html
-          grep -q 'src/app-stable.js?v=9' index.html
-          grep -q 'turn-guidance.css?v=9' index.html
+          grep -q 'premium-phase1.css?v=10' index.html
+          grep -q 'board-geometry-lock.css?v=10' index.html
+          grep -q 'src/app-stable.js?v=10' index.html
+          grep -q 'turn-guidance.css?v=10' index.html
+          grep -q 'Presentation-only layer' premium-phase1.css
+
+          premium_line=$(grep -n 'premium-phase1.css?v=10' index.html | head -1 | cut -d: -f1)
+          geometry_line=$(grep -n 'board-geometry-lock.css?v=10' index.html | head -1 | cut -d: -f1)
+          if [ "$premium_line" -ge "$geometry_line" ]; then
+            echo "Geometry lock must load after the premium presentation layer."
+            exit 1
+          fi
+
+          if grep -Eq '(^|[,{[:space:]])\.board([[:space:]{>,:#])' premium-phase1.css; then
+            echo "Premium presentation layer directly targets the board container."
+            exit 1
+          fi
+
+          if grep -Eq 'grid-template|aspect-ratio|--locked-board-size|--locked-cell-size' premium-phase1.css; then
+            echo "Premium presentation layer attempted to control board geometry."
+            exit 1
+          fi
 
           if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app-stable.js; then
             echo "Board rotation code or controls were detected."
@@ -77,7 +96,7 @@ jobs:
             fen: "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
             expected: 4085603
           - name: Endgame
-            fen: "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"
+            fen: "8/2p5/3p4/KP5r/1R3p1k/8/4P1p1/8 w - - 0 1"
             expected: 43238
           - name: Promotion-Castling
             fen: "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"
@@ -112,7 +131,7 @@ jobs:
           NODE
 
   deploy:
-    name: Publish geometry-locked live game
+    name: Publish premium phase one live game
     needs: [fast-tests, canonical-perft]
     environment:
       name: github-pages
@@ -128,12 +147,12 @@ jobs:
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
 
-      - name: Build geometry-locked deployment package
+      - name: Build premium geometry-locked deployment package
         shell: bash
         run: |
           rm -rf site
           cp -R CrownforgeChess_WebCheckpoint1/dist site
-          cp index.html styles.css last-move.css turn-guidance.css board-geometry-lock.css manifest.webmanifest service-worker.js site/
+          cp index.html styles.css last-move.css turn-guidance.css premium-phase1.css board-geometry-lock.css manifest.webmanifest service-worker.js site/
           mkdir -p site/src site/public
           cp src/app-stable.js src/feedback.js site/src/
           cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
@@ -143,12 +162,20 @@ jobs:
           node --check site/src/engine-stable.js
           node --check site/src/feedback.js
           node --check site/service-worker.js
-          grep -q 'src/app-stable.js?v=9' site/index.html
-          grep -q 'board-geometry-lock.css?v=9' site/index.html
+          grep -q 'src/app-stable.js?v=10' site/index.html
+          grep -q 'premium-phase1.css?v=10' site/index.html
+          grep -q 'board-geometry-lock.css?v=10' site/index.html
           grep -q 'dataset.orientation = "white"' site/src/app-stable.js
           grep -q 'dataset.geometryLocked = "true"' site/src/app-stable.js
           grep -q 'grid-template-columns: repeat(8' site/board-geometry-lock.css
           grep -q 'grid-template-rows: repeat(8' site/board-geometry-lock.css
+
+          premium_line=$(grep -n 'premium-phase1.css?v=10' site/index.html | head -1 | cut -d: -f1)
+          geometry_line=$(grep -n 'board-geometry-lock.css?v=10' site/index.html | head -1 | cut -d: -f1)
+          if [ "$premium_line" -ge "$geometry_line" ]; then
+            echo "Deployment package has unsafe stylesheet order."
+            exit 1
+          fi
 
           if grep -q 'DecompressionStream' site/src/engine-stable.js; then
             echo "Compressed browser engine loader reached deployment package."
@@ -171,7 +198,7 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload geometry-locked playable PWA
+      - name: Upload premium playable PWA
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
