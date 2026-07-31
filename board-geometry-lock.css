@@ -1,0 +1,90 @@
+/*
+ * Crownforge board geometry contract
+ * ----------------------------------
+ * The board is measured once after the initial 64-cell render and then
+ * permanently locked to one square pixel size for the lifetime of the page.
+ * Turn changes may update pieces and highlights only; the grid never scales,
+ * rotates, shakes, transitions, or changes its row/column dimensions.
+ */
+
+.board-stage {
+  display: grid;
+  place-items: center;
+  min-inline-size: 0;
+  perspective: none !important;
+  contain: layout paint style;
+}
+
+.board {
+  inline-size: 100%;
+  aspect-ratio: 1 / 1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(8, minmax(0, 1fr)) !important;
+  grid-auto-flow: row !important;
+  grid-auto-columns: 0 !important;
+  grid-auto-rows: 0 !important;
+  flex: none !important;
+  transform: none !important;
+  transform-origin: center !important;
+  transition: none !important;
+  animation: none !important;
+  contain: layout paint style;
+  overflow: hidden;
+}
+
+.board[data-geometry-locked="true"] {
+  inline-size: var(--locked-board-size) !important;
+  block-size: var(--locked-board-size) !important;
+  min-inline-size: var(--locked-board-size) !important;
+  max-inline-size: var(--locked-board-size) !important;
+  min-block-size: var(--locked-board-size) !important;
+  max-block-size: var(--locked-board-size) !important;
+  grid-template-columns: repeat(8, var(--locked-cell-size)) !important;
+  grid-template-rows: repeat(8, var(--locked-cell-size)) !important;
+  contain: strict;
+}
+
+.square {
+  inline-size: 100% !important;
+  block-size: 100% !important;
+  min-inline-size: 0 !important;
+  min-block-size: 0 !important;
+  max-inline-size: none !important;
+  max-block-size: none !important;
+  aspect-ratio: 1 / 1 !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+  contain: layout paint style;
+  overflow: visible;
+}
+
+/* Neutralize all legacy whole-board movement paths. */
+.board.illegal,
+.board.move-impact,
+.cinematic .board,
+body[data-turn="white"] .board,
+body[data-turn="black"] .board,
+body[data-turn="terminal"] .board {
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+.board-stage,
+.board-stage::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Pieces remain the only animated elements inside the chessboard. */
+.piece {
+  will-change: transform, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece {
+    will-change: auto;
+  }
+}
