@@ -1,9 +1,9 @@
 /*
- * Crownforge Premium Phase 2A — offline WebGL piece layer
- * --------------------------------------------------------
- * Presentation only. The canvas is locked to the already immutable board
- * rectangle and never participates in layout, input, chess state, or grid
- * sizing. The original glyph pieces remain as the automatic fallback.
+ * Crownforge Premium Phase 2A — fail-safe offline WebGL piece layer
+ * -----------------------------------------------------------------
+ * The canvas is an absolute, non-interactive presentation overlay. It never
+ * participates in layout or input. DOM pieces stay visible until JavaScript
+ * proves that the canvas rectangle exactly matches the immutable board.
  */
 
 .board-stage {
@@ -12,14 +12,16 @@
 
 #board-3d {
   position: absolute;
-  inset: auto;
+  left: 0;
+  top: 0;
   display: block;
-  pointer-events: none;
-  touch-action: none;
+  pointer-events: none !important;
+  touch-action: none !important;
+  user-select: none;
   z-index: 3;
   opacity: 0;
   transform: none;
-  transition: opacity 180ms ease;
+  transition: opacity 120ms ease;
   contain: strict;
 }
 
@@ -28,15 +30,30 @@
   z-index: 2;
 }
 
-.webgl-3d-ready #board-3d[data-ready="true"] {
+/* WebGL is shown only after both rendering and pixel alignment succeed. */
+.webgl-3d-ready #board-3d[data-ready="true"][data-aligned="true"] {
   opacity: 1;
 }
 
-.webgl-3d-ready .board .piece {
+/* The known-working DOM pieces are hidden only under the same strict gate. */
+.webgl-3d-ready #board-3d[data-ready="true"][data-aligned="true"] + .board .piece {
   opacity: 0 !important;
   visibility: hidden;
   animation: none !important;
   transition: none !important;
+}
+
+/* Any mismatch immediately returns to the verified DOM-piece fallback. */
+#board-3d[data-aligned="false"],
+#board-3d[data-ready="false"],
+.webgl-3d-unavailable #board-3d {
+  opacity: 0 !important;
+}
+
+.webgl-3d-unavailable .board .piece,
+html:not(.webgl-3d-ready) .board .piece {
+  opacity: 1;
+  visibility: visible;
 }
 
 .webgl-3d-ready .square.selected::before,
@@ -47,10 +64,6 @@
 .webgl-3d-ready .rank-label,
 .webgl-3d-ready .file-label {
   z-index: 4;
-}
-
-.webgl-3d-unavailable #board-3d {
-  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
