@@ -1,19 +1,19 @@
-const CACHE = "crownforge-v11-webgl-phase2a";
+const CACHE = "crownforge-v12-webgl-alignment-repair";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=11",
-  "./last-move.css?v=11",
-  "./turn-guidance.css?v=11",
-  "./premium-phase1.css?v=11",
-  "./webgl-phase2.css?v=11",
-  "./board-geometry-lock.css?v=11",
-  "./src/app-stable.js?v=11",
-  "./src/board3d.js?v=11",
+  "./styles.css?v=12",
+  "./last-move.css?v=12",
+  "./turn-guidance.css?v=12",
+  "./premium-phase1.css?v=12",
+  "./webgl-phase2.css?v=12",
+  "./board-geometry-lock.css?v=12",
+  "./src/app-stable.js?v=12",
+  "./src/board3d.js?v=12",
   "./src/board3d-meshes.js",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=11",
-  "./manifest.webmanifest?v=11",
+  "./src/feedback.js?v=12",
+  "./manifest.webmanifest?v=12",
   "./public/icon.svg"
 ];
 
