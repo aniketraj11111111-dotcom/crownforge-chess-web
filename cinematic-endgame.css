@@ -1,0 +1,177 @@
+/* Crownforge cinematic endgame presentation.
+ * Presentation-only: never mutates board geometry, orientation, input, or chess state.
+ */
+
+.victory {
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(229, 190, 104, 0.18), transparent 24%),
+    radial-gradient(circle at 50% 70%, rgba(111, 62, 28, 0.18), transparent 38%),
+    rgba(3, 3, 5, 0.84);
+  backdrop-filter: blur(9px) saturate(0.82);
+  -webkit-backdrop-filter: blur(9px) saturate(0.82);
+}
+
+.victory::before,
+.victory::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.victory::before {
+  background: conic-gradient(
+    from 0deg at 50% 48%,
+    transparent 0 8%,
+    rgba(244, 216, 145, 0.08) 10% 12%,
+    transparent 14% 28%,
+    rgba(196, 137, 61, 0.07) 30% 32%,
+    transparent 34% 58%,
+    rgba(244, 216, 145, 0.06) 60% 62%,
+    transparent 64% 100%
+  );
+  animation: crownforge-rays 18s linear infinite;
+}
+
+.victory::after {
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49.85%, rgba(255, 238, 188, 0.16) 50%, transparent 50.15%),
+    radial-gradient(ellipse at center, transparent 24%, rgba(0, 0, 0, 0.72) 82%);
+  mix-blend-mode: screen;
+  opacity: 0.74;
+}
+
+.victory-beam {
+  width: min(42vw, 340px);
+  height: 145vh;
+  top: -24vh;
+  left: 50%;
+  transform: translateX(-50%) rotate(7deg);
+  opacity: 0.56;
+  filter: blur(7px);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 224, 150, 0.04) 22%,
+    rgba(255, 238, 188, 0.36) 50%,
+    rgba(255, 224, 150, 0.04) 78%,
+    transparent
+  );
+  animation: crownforge-beam-breathe 3.8s ease-in-out infinite;
+}
+
+.victory-card {
+  position: relative;
+  overflow: hidden;
+  width: min(88vw, 520px);
+  padding: clamp(30px, 6vw, 58px) clamp(24px, 7vw, 64px);
+  transform-origin: 50% 62%;
+  animation: crownforge-victory-arrive 780ms cubic-bezier(.16,.86,.28,1) both;
+}
+
+.victory-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(115deg, transparent 18%, rgba(255,255,255,0.13) 34%, transparent 50%),
+    radial-gradient(circle at 50% 0%, rgba(255, 224, 150, 0.16), transparent 38%);
+  transform: translateX(-85%);
+  animation: crownforge-card-sheen 2.2s 420ms ease-out both;
+}
+
+.victory-card::after {
+  content: "♔";
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border: 1px solid rgba(244, 216, 145, 0.34);
+  border-radius: 50%;
+  color: #f6dda0;
+  font-size: 31px;
+  background: radial-gradient(circle at 35% 26%, rgba(255,255,255,0.15), transparent 32%), #1d130d;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 34px rgba(217, 169, 79, 0.18);
+}
+
+.victory-card p {
+  letter-spacing: 0.22em;
+  color: rgba(244, 216, 145, 0.68);
+}
+
+.victory-card h2 {
+  margin-top: 10px;
+  color: #fff5d8;
+  font-size: clamp(34px, 9vw, 68px);
+  line-height: 0.96;
+  letter-spacing: 0.045em;
+  text-shadow: 0 2px 0 #7b4e25, 0 0 30px rgba(236, 196, 109, 0.28);
+}
+
+.victory-card strong {
+  display: block;
+  margin-top: 14px;
+  color: #e5c780;
+  font-size: clamp(15px, 3.8vw, 22px);
+  letter-spacing: 0.16em;
+}
+
+.victory-card button {
+  min-width: 160px;
+  margin-top: 26px;
+  border-radius: 999px;
+}
+
+@keyframes crownforge-victory-arrive {
+  0% { opacity: 0; transform: translateY(26px) scale(0.9); filter: blur(8px); }
+  62% { opacity: 1; transform: translateY(-4px) scale(1.012); filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes crownforge-card-sheen {
+  0% { transform: translateX(-85%); opacity: 0; }
+  24% { opacity: 1; }
+  100% { transform: translateX(92%); opacity: 0; }
+}
+
+@keyframes crownforge-rays {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes crownforge-beam-breathe {
+  0%, 100% { opacity: 0.38; transform: translateX(-50%) rotate(7deg) scaleX(0.92); }
+  50% { opacity: 0.62; transform: translateX(-50%) rotate(7deg) scaleX(1.08); }
+}
+
+@media (max-width: 560px) {
+  .victory-card {
+    border-radius: 24px;
+  }
+
+  .victory-card::after {
+    width: 48px;
+    height: 48px;
+    font-size: 27px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .victory::before,
+  .victory-beam,
+  .victory-card,
+  .victory-card::before {
+    animation: none !important;
+  }
+
+  .victory-card {
+    transform: none;
+    filter: none;
+  }
+}
