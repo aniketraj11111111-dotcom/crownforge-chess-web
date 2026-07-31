@@ -1,25 +1,58 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#0c0d12"><title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./last-move.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#0c0d12">
+  <title>Crownforge Chess</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./last-move.css">
 </head>
 <body>
   <main class="app-shell">
-    <header><div><p class="eyebrow">CROWNFORGE</p><h1>Play in Person</h1></div><div class="crest">♔</div></header>
-    <section class="status-card"><strong id="status">White to move</strong><span id="substatus"></span></section>
+    <header>
+      <div><p class="eyebrow">CROWNFORGE</p><h1>Play in Person</h1></div>
+      <div class="crest">♔</div>
+    </header>
+    <section class="status-card">
+      <strong id="status">White to move</strong>
+      <span id="substatus"></span>
+    </section>
     <section class="game-layout">
-      <div class="board-stage"><div id="board" class="board" aria-label="Chessboard"></div></div>
+      <div class="board-stage">
+        <div id="board" class="board" aria-label="Chessboard fixed with White at the bottom"></div>
+      </div>
       <aside>
-        <div class="controls"><button id="restart">New Game</button><button id="rotate">Flip Board</button><button id="claim-draw" disabled>Claim Draw</button></div>
-        <label class="switch"><input id="auto-rotate" type="checkbox" checked><span>Rotate after every move</span></label>
-        <div class="history-panel"><h2>Move history</h2><ol id="history"></ol></div>
+        <div class="controls">
+          <button id="restart">New Game</button>
+          <button id="claim-draw" disabled>Claim Draw</button>
+        </div>
+        <div class="history-panel">
+          <h2>Move history</h2>
+          <ol id="history"></ol>
+        </div>
       </aside>
     </section>
   </main>
-  <dialog id="promotion-dialog"><h2>Choose promotion</h2><div class="promotion-grid"><button data-promotion="5">♕<span>Queen</span></button><button data-promotion="4">♖<span>Rook</span></button><button data-promotion="3">♗<span>Bishop</span></button><button data-promotion="2">♘<span>Knight</span></button></div></dialog>
-  <div id="victory" class="victory"><div class="victory-beam"></div><div class="victory-card"><p>FINAL POSITION CONFIRMED</p><h2 id="victory-title">CHECKMATE</h2><strong id="victory-text">WHITE WINS</strong><button id="rematch">Rematch</button></div></div>
+  <dialog id="promotion-dialog">
+    <h2>Choose promotion</h2>
+    <div class="promotion-grid">
+      <button data-promotion="5">♕<span>Queen</span></button>
+      <button data-promotion="4">♖<span>Rook</span></button>
+      <button data-promotion="3">♗<span>Bishop</span></button>
+      <button data-promotion="2">♘<span>Knight</span></button>
+    </div>
+  </dialog>
+  <div id="victory" class="victory">
+    <div class="victory-beam"></div>
+    <div class="victory-card">
+      <p>FINAL POSITION CONFIRMED</p>
+      <h2 id="victory-title">CHECKMATE</h2>
+      <strong id="victory-text">WHITE WINS</strong>
+      <button id="rematch">Rematch</button>
+    </div>
+  </div>
   <script src="./src/feedback.js" defer></script>
   <script type="module" src="./src/app.js"></script>
 </body>
