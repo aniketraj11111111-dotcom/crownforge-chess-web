@@ -1,20 +1,20 @@
-const CACHE = "crownforge-v14-cinematic-endgame";
+const CACHE = "crownforge-v15-halfmove-feedback";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=14",
-  "./last-move.css?v=14",
-  "./turn-guidance.css?v=14",
-  "./premium-phase1.css?v=14",
-  "./webgl-phase2.css?v=14",
-  "./cinematic-endgame.css?v=14",
-  "./board-geometry-lock.css?v=14",
-  "./src/app-stable.js?v=14",
-  "./src/board3d.js?v=14",
+  "./styles.css?v=15",
+  "./last-move.css?v=15",
+  "./turn-guidance.css?v=15",
+  "./premium-phase1.css?v=15",
+  "./webgl-phase2.css?v=15",
+  "./cinematic-endgame.css?v=15",
+  "./board-geometry-lock.css?v=15",
+  "./src/app-stable.js?v=15",
+  "./src/board3d.js?v=15",
   "./src/board3d-meshes.js",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=14",
-  "./manifest.webmanifest?v=14",
+  "./src/feedback.js?v=15",
+  "./manifest.webmanifest?v=15",
   "./public/icon.svg"
 ];
 
