@@ -1,0 +1,1 @@
+GitHub Pages source was enabled by the repository owner on 2026-07-31. This file triggers the verified Crownforge deployment workflow.
