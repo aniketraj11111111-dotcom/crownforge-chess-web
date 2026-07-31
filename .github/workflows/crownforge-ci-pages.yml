@@ -20,22 +20,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify fixed board orientation
+
+      - name: Verify stable fixed-board UI
         shell: bash
         run: |
-          node --check src/app.js
+          node --check src/app-stable.js
           node --check src/feedback.js
-          grep -q 'dataset.orientation = "white"' src/app.js
-          if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app.js; then
+          node --check service-worker.js
+          grep -q 'dataset.orientation = "white"' src/app-stable.js
+          grep -q 'src/app-stable.js?v=7' index.html
+          if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app-stable.js; then
             echo "Board rotation code or controls were detected."
             exit 1
           fi
+
       - name: Restore verified checkpoint
         shell: bash
         run: |
           cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
+
       - name: Run compiled rules suite
         run: node CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
 
@@ -66,12 +71,14 @@ jobs:
             expected: 3894594
     steps:
       - uses: actions/checkout@v4
+
       - name: Restore verified checkpoint
         shell: bash
         run: |
           cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
+
       - name: Verify depth-4 leaf count
         env:
           FEN: ${{ matrix.fen }}
@@ -86,7 +93,7 @@ jobs:
           NODE
 
   deploy:
-    name: Publish current live game
+    name: Publish stable live game
     needs: [fast-tests, canonical-perft]
     environment:
       name: github-pages
@@ -94,19 +101,52 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare current playable PWA
+
+      - name: Restore verified checkpoint
+        shell: bash
+        run: |
+          cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
+          echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
+          unzip -q crownforge-checkpoint.zip
+
+      - name: Build stable deployment package
         shell: bash
         run: |
           rm -rf site
-          mkdir -p site
+          cp -R CrownforgeChess_WebCheckpoint1/dist site
           cp index.html styles.css last-move.css manifest.webmanifest service-worker.js site/
-          cp -R src assets public site/
+          mkdir -p site/src site/public
+          cp src/app-stable.js src/feedback.js site/src/
+          cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
+          cp -R public/. site/public/
+
+          node --check site/src/app-stable.js
+          node --check site/src/engine-stable.js
+          node --check site/src/feedback.js
+          node --check site/service-worker.js
+          grep -q 'src/app-stable.js?v=7' site/index.html
+          grep -q 'dataset.orientation = "white"' site/src/app-stable.js
+          if grep -q 'DecompressionStream' site/src/engine-stable.js; then
+            echo "Compressed browser engine loader reached deployment package."
+            exit 1
+          fi
+
+          node --input-type=module <<'NODE'
+          import { ChessGame, Side } from './site/src/engine-stable.js';
+          const game = new ChessGame();
+          if (game.position.sideToMove !== Side.White) throw new Error('Initial side-to-move is not White.');
+          if (game.getLegalMoves().length !== 20) throw new Error('Stable deployed engine did not generate 20 initial legal moves.');
+          console.log('Stable deployed engine import and initial legal-move gate passed.');
+          NODE
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-      - name: Upload current playable PWA
+
+      - name: Upload stable playable PWA
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
+
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
