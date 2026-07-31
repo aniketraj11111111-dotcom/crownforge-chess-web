@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#0c0d12">
+  <meta name="theme-color" content="#0b0908">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="./styles.css?v=9">
-  <link rel="stylesheet" href="./last-move.css?v=9">
-  <link rel="stylesheet" href="./turn-guidance.css?v=9">
-  <link rel="stylesheet" href="./board-geometry-lock.css?v=9">
+  <link rel="manifest" href="./manifest.webmanifest?v=10">
+  <link rel="stylesheet" href="./styles.css?v=10">
+  <link rel="stylesheet" href="./last-move.css?v=10">
+  <link rel="stylesheet" href="./turn-guidance.css?v=10">
+  <link rel="stylesheet" href="./premium-phase1.css?v=10">
+  <link rel="stylesheet" href="./board-geometry-lock.css?v=10">
 </head>
 <body>
   <main class="app-shell">
@@ -61,7 +62,7 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=9").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js?v=10").catch(() => {});
       });
     }
 
@@ -81,7 +82,7 @@
       }
     }, 5000);
   </script>
-  <script src="./src/feedback.js?v=9" defer></script>
-  <script type="module" src="./src/app-stable.js?v=9"></script>
+  <script src="./src/feedback.js?v=10" defer></script>
+  <script type="module" src="./src/app-stable.js?v=10"></script>
 </body>
 </html>
