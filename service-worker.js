@@ -1,20 +1,21 @@
-const CACHE = "crownforge-v15-halfmove-feedback";
+const CACHE = "crownforge-v16-terminal-focus";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=15",
-  "./last-move.css?v=15",
-  "./turn-guidance.css?v=15",
-  "./premium-phase1.css?v=15",
-  "./webgl-phase2.css?v=15",
-  "./cinematic-endgame.css?v=15",
-  "./board-geometry-lock.css?v=15",
-  "./src/app-stable.js?v=15",
-  "./src/board3d.js?v=15",
+  "./styles.css?v=16",
+  "./last-move.css?v=16",
+  "./turn-guidance.css?v=16",
+  "./premium-phase1.css?v=16",
+  "./webgl-phase2.css?v=16",
+  "./cinematic-endgame.css?v=16",
+  "./board-geometry-lock.css?v=16",
+  "./src/app-stable.js?v=16",
+  "./src/board3d.js?v=16",
   "./src/board3d-meshes.js",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=15",
-  "./manifest.webmanifest?v=15",
+  "./src/feedback.js?v=16",
+  "./src/terminal-focus.js?v=16",
+  "./manifest.webmanifest?v=16",
   "./public/icon.svg"
 ];
 
