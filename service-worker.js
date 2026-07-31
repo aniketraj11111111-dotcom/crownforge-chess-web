@@ -1,15 +1,16 @@
-const CACHE = "crownforge-v9-board-geometry-lock";
+const CACHE = "crownforge-v10-premium-phase1";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=9",
-  "./last-move.css?v=9",
-  "./turn-guidance.css?v=9",
-  "./board-geometry-lock.css?v=9",
-  "./src/app-stable.js?v=9",
+  "./styles.css?v=10",
+  "./last-move.css?v=10",
+  "./turn-guidance.css?v=10",
+  "./premium-phase1.css?v=10",
+  "./board-geometry-lock.css?v=10",
+  "./src/app-stable.js?v=10",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=9",
-  "./manifest.webmanifest?v=9",
+  "./src/feedback.js?v=10",
+  "./manifest.webmanifest?v=10",
   "./public/icon.svg"
 ];
 
