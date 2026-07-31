@@ -1,0 +1,40 @@
+name: PWA Integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pwa-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check browser JavaScript syntax
+        run: |
+          node --check service-worker.js
+          node --check src/app-stable.js
+          node --check src/board3d.js
+          node --check src/board3d-meshes.js
+          node --check src/engine-stable.js
+          node --check src/feedback.js
+
+      - name: Verify offline app-shell integrity
+        run: node .github/scripts/verify-pwa-integrity.mjs
