@@ -27,6 +27,9 @@ if (!boardEl || !statusEl || !substatusEl || !historyEl || !restartBtn ||
   throw new Error("Crownforge UI bootstrap failed: required element missing.");
 }
 
+statusEl.setAttribute("aria-live", "polite");
+statusEl.setAttribute("aria-atomic", "true");
+
 let game = new ChessGame();
 let selected = null;
 let selectedMoves = [];
@@ -105,6 +108,10 @@ function render() {
   }
 
   const side = game.position.sideToMove === Side.White ? "White" : "Black";
+  const turnKey = game.position.sideToMove === Side.White ? "white" : "black";
+  document.body.dataset.turn = game.outcome.isTerminal ? "terminal" : turnKey;
+  boardEl.dataset.turn = game.outcome.isTerminal ? "terminal" : turnKey;
+
   statusEl.textContent = game.outcome.isTerminal
     ? statusNames[game.outcome.status]
     : `${side} to move${game.outcome.isCheck ? " — CHECK" : ""}`;
