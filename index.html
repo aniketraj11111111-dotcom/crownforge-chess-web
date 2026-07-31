@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0c0d12">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=8">
-  <link rel="stylesheet" href="./styles.css?v=8">
-  <link rel="stylesheet" href="./last-move.css?v=8">
-  <link rel="stylesheet" href="./turn-guidance.css?v=8">
+  <link rel="manifest" href="./manifest.webmanifest?v=9">
+  <link rel="stylesheet" href="./styles.css?v=9">
+  <link rel="stylesheet" href="./last-move.css?v=9">
+  <link rel="stylesheet" href="./turn-guidance.css?v=9">
+  <link rel="stylesheet" href="./board-geometry-lock.css?v=9">
 </head>
 <body>
   <main class="app-shell">
@@ -22,7 +23,7 @@
     </section>
     <section class="game-layout">
       <div class="board-stage">
-        <div id="board" class="board" aria-label="Chessboard fixed with White at the bottom"></div>
+        <div id="board" class="board" aria-label="Fixed square 8 by 8 chessboard with White at the bottom"></div>
       </div>
       <aside>
         <div class="controls">
@@ -60,7 +61,7 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=8").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js?v=9").catch(() => {});
       });
     }
 
@@ -80,7 +81,7 @@
       }
     }, 5000);
   </script>
-  <script src="./src/feedback.js?v=8" defer></script>
-  <script type="module" src="./src/app-stable.js?v=8"></script>
+  <script src="./src/feedback.js?v=9" defer></script>
+  <script type="module" src="./src/app-stable.js?v=9"></script>
 </body>
 </html>
