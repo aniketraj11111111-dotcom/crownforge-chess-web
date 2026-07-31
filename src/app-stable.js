@@ -35,6 +35,9 @@ let selected = null;
 let selectedMoves = [];
 let lastMove = null;
 let inputLocked = false;
+let geometryLock = null;
+
+const cellViews = new Map();
 
 const statusNames = {
   [GameStatus.InProgress]: "Game in progress",
@@ -59,35 +62,53 @@ function visualSquares() {
   return squares;
 }
 
-function render() {
+const fixedVisualSquares = Object.freeze(visualSquares());
+
+function lockBoardGeometry() {
+  if (geometryLock) return;
+
+  const measuredWidth = boardEl.getBoundingClientRect().width;
+  if (!Number.isFinite(measuredWidth) || measuredWidth <= 0) {
+    window.requestAnimationFrame(lockBoardGeometry);
+    return;
+  }
+
+  const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+  const physicalCellSize = Math.max(1, Math.floor((measuredWidth * pixelRatio) / 8));
+  const cellSize = physicalCellSize / pixelRatio;
+  const boardSize = cellSize * 8;
+
+  geometryLock = Object.freeze({ boardSize, cellSize });
+  boardEl.style.setProperty("--locked-board-size", `${boardSize}px`);
+  boardEl.style.setProperty("--locked-cell-size", `${cellSize}px`);
+  boardEl.style.inlineSize = `${boardSize}px`;
+  boardEl.style.blockSize = `${boardSize}px`;
+  boardEl.style.minInlineSize = `${boardSize}px`;
+  boardEl.style.maxInlineSize = `${boardSize}px`;
+  boardEl.style.minBlockSize = `${boardSize}px`;
+  boardEl.style.maxBlockSize = `${boardSize}px`;
+  boardEl.dataset.geometryLocked = "true";
+
+  window.CROWNFORGE_GEOMETRY = geometryLock;
+}
+
+function createFixedBoardGrid() {
+  if (cellViews.size === 64) return;
+
   boardEl.replaceChildren();
   boardEl.dataset.orientation = "white";
-  const legalTargets = new Set(selectedMoves.map((move) => move.to.index));
+  const fragment = document.createDocumentFragment();
 
-  for (const square of visualSquares()) {
-    const piece = game.position.at(square);
+  for (const square of fixedVisualSquares) {
     const cell = document.createElement("button");
     cell.type = "button";
-    cell.className = `square ${(square.file + square.rank) % 2 ? "light" : "dark"}`;
     cell.dataset.square = square.toString();
-    cell.setAttribute(
-      "aria-label",
-      `${square}${piece ? ` ${Side[piece.side]} ${PieceType[piece.type]}` : " empty"}`,
-    );
 
-    if (lastMove?.from.index === square.index) cell.classList.add("last-from");
-    if (lastMove?.to.index === square.index) cell.classList.add("last-to");
-    if (selected?.index === square.index) cell.classList.add("selected");
-    if (legalTargets.has(square.index)) {
-      cell.classList.add(piece ? "capture-target" : "legal-target");
-    }
-
-    if (piece) {
-      const span = document.createElement("span");
-      span.className = `piece ${piece.side === Side.White ? "white" : "black"}`;
-      span.textContent = pieceGlyph(piece);
-      cell.append(span);
-    }
+    const pieceElement = document.createElement("span");
+    pieceElement.className = "piece";
+    pieceElement.hidden = true;
+    pieceElement.setAttribute("aria-hidden", "true");
+    cell.append(pieceElement);
 
     if (square.file === 0) {
       const rankLabel = document.createElement("small");
@@ -104,7 +125,56 @@ function render() {
     }
 
     cell.addEventListener("click", () => void onSquare(square));
-    boardEl.append(cell);
+    cellViews.set(square.index, { cell, pieceElement });
+    fragment.append(cell);
+  }
+
+  boardEl.append(fragment);
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(lockBoardGeometry);
+  });
+}
+
+function render() {
+  createFixedBoardGrid();
+  boardEl.dataset.orientation = "white";
+
+  const legalTargets = new Set(selectedMoves.map((move) => move.to.index));
+
+  for (const square of fixedVisualSquares) {
+    const view = cellViews.get(square.index);
+    if (!view) throw new Error(`Missing fixed cell for ${square}.`);
+
+    const { cell, pieceElement } = view;
+    const piece = game.position.at(square);
+    const classes = [
+      "square",
+      (square.file + square.rank) % 2 ? "light" : "dark",
+    ];
+
+    if (lastMove?.from.index === square.index) classes.push("last-from");
+    if (lastMove?.to.index === square.index) classes.push("last-to");
+    if (selected?.index === square.index) classes.push("selected");
+    if (legalTargets.has(square.index)) {
+      classes.push(piece ? "capture-target" : "legal-target");
+    }
+
+    cell.className = classes.join(" ");
+    cell.setAttribute(
+      "aria-label",
+      `${square}${piece ? ` ${Side[piece.side]} ${PieceType[piece.type]}` : " empty"}`,
+    );
+
+    if (piece) {
+      pieceElement.hidden = false;
+      pieceElement.className = `piece ${piece.side === Side.White ? "white" : "black"}`;
+      pieceElement.textContent = pieceGlyph(piece);
+    } else {
+      pieceElement.hidden = true;
+      pieceElement.className = "piece";
+      pieceElement.textContent = "";
+    }
   }
 
   const side = game.position.sideToMove === Side.White ? "White" : "Black";
@@ -193,9 +263,6 @@ async function onSquare(square) {
   );
 
   if (!candidates.length) {
-    boardEl.classList.remove("illegal");
-    void boardEl.offsetWidth;
-    boardEl.classList.add("illegal");
     selected = null;
     selectedMoves = [];
     render();
@@ -215,11 +282,6 @@ async function onSquare(square) {
     lastMove = move;
     selected = null;
     selectedMoves = [];
-
-    boardEl.classList.remove("move-impact");
-    void boardEl.offsetWidth;
-    boardEl.classList.add("move-impact");
-    setTimeout(() => boardEl.classList.remove("move-impact"), 260);
 
     render();
     if (game.outcome.isTerminal) await showTerminal();
