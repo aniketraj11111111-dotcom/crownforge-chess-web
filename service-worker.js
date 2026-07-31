@@ -1,8 +1,9 @@
-const CACHE="crownforge-v3";
+const CACHE="crownforge-v4";
 const APP_SHELL=[
   "./",
   "./index.html",
   "./styles.css",
+  "./last-move.css",
   "./src/app.js",
   "./src/engine.js",
   "./src/feedback.js",
