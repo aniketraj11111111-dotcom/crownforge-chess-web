@@ -16,10 +16,20 @@ concurrency:
 
 jobs:
   fast-tests:
-    name: Engine and rules tests
+    name: Engine, rules and fixed-board tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify fixed board orientation
+        shell: bash
+        run: |
+          node --check src/app.js
+          node --check src/feedback.js
+          grep -q 'dataset.orientation = "white"' src/app.js
+          if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app.js; then
+            echo "Board rotation code or controls were detected."
+            exit 1
+          fi
       - name: Restore verified checkpoint
         shell: bash
         run: |
@@ -76,7 +86,7 @@ jobs:
           NODE
 
   deploy:
-    name: Publish live game
+    name: Publish current live game
     needs: [fast-tests, canonical-perft]
     environment:
       name: github-pages
@@ -84,18 +94,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Restore verified checkpoint
+      - name: Prepare current playable PWA
         shell: bash
         run: |
-          cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
-          echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
-          unzip -q crownforge-checkpoint.zip
+          rm -rf site
+          mkdir -p site
+          cp index.html styles.css last-move.css manifest.webmanifest service-worker.js site/
+          cp -R src assets public site/
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-      - name: Upload playable PWA
+      - name: Upload current playable PWA
         uses: actions/upload-pages-artifact@v4
         with:
-          path: CrownforgeChess_WebCheckpoint1/dist
+          path: site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
