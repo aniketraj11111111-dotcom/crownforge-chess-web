@@ -1,19 +1,20 @@
-const CACHE = "crownforge-v13-premium-piece-silhouettes";
+const CACHE = "crownforge-v14-cinematic-endgame";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=12",
-  "./last-move.css?v=12",
-  "./turn-guidance.css?v=12",
-  "./premium-phase1.css?v=12",
-  "./webgl-phase2.css?v=12",
-  "./board-geometry-lock.css?v=12",
-  "./src/app-stable.js?v=12",
-  "./src/board3d.js?v=12",
+  "./styles.css?v=14",
+  "./last-move.css?v=14",
+  "./turn-guidance.css?v=14",
+  "./premium-phase1.css?v=14",
+  "./webgl-phase2.css?v=14",
+  "./cinematic-endgame.css?v=14",
+  "./board-geometry-lock.css?v=14",
+  "./src/app-stable.js?v=14",
+  "./src/board3d.js?v=14",
   "./src/board3d-meshes.js",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=12",
-  "./manifest.webmanifest?v=12",
+  "./src/feedback.js?v=14",
+  "./manifest.webmanifest?v=14",
   "./public/icon.svg"
 ];
 
