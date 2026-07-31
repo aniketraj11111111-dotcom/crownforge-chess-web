@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0b0908">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=11">
-  <link rel="stylesheet" href="./styles.css?v=11">
-  <link rel="stylesheet" href="./last-move.css?v=11">
-  <link rel="stylesheet" href="./turn-guidance.css?v=11">
-  <link rel="stylesheet" href="./premium-phase1.css?v=11">
-  <link rel="stylesheet" href="./webgl-phase2.css?v=11">
-  <link rel="stylesheet" href="./board-geometry-lock.css?v=11">
+  <link rel="manifest" href="./manifest.webmanifest?v=12">
+  <link rel="stylesheet" href="./styles.css?v=12">
+  <link rel="stylesheet" href="./last-move.css?v=12">
+  <link rel="stylesheet" href="./turn-guidance.css?v=12">
+  <link rel="stylesheet" href="./premium-phase1.css?v=12">
+  <link rel="stylesheet" href="./webgl-phase2.css?v=12">
+  <link rel="stylesheet" href="./board-geometry-lock.css?v=12">
 </head>
 <body>
   <main class="app-shell">
@@ -25,7 +25,7 @@
     </section>
     <section class="game-layout">
       <div class="board-stage">
-        <canvas id="board-3d" aria-hidden="true"></canvas>
+        <canvas id="board-3d" data-ready="false" data-aligned="false" aria-hidden="true"></canvas>
         <div id="board" class="board" aria-label="Fixed square 8 by 8 chessboard with White at the bottom"></div>
       </div>
       <aside>
@@ -64,7 +64,7 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=11").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js?v=12").catch(() => {});
       });
     }
 
@@ -84,8 +84,8 @@
       }
     }, 5000);
   </script>
-  <script src="./src/feedback.js?v=11" defer></script>
-  <script type="module" src="./src/board3d.js?v=11"></script>
-  <script type="module" src="./src/app-stable.js?v=11"></script>
+  <script src="./src/feedback.js?v=12" defer></script>
+  <script type="module" src="./src/board3d.js?v=12"></script>
+  <script type="module" src="./src/app-stable.js?v=12"></script>
 </body>
 </html>
