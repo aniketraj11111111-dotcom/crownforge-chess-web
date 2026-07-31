@@ -16,16 +16,18 @@ concurrency:
 
 jobs:
   fast-tests:
-    name: Engine, rules, immutable-board and premium-layer tests
+    name: Engine, rules, immutable-board and WebGL isolation tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify fixed orientation, immutable geometry and isolated premium layer
+      - name: Verify fixed board and isolated offline WebGL presentation
         shell: bash
         run: |
           node --check src/app-stable.js
           node --check src/feedback.js
+          node --check src/board3d.js
+          node --check src/board3d-meshes.js
           node --check service-worker.js
 
           grep -q 'dataset.orientation = "white"' src/app-stable.js
@@ -34,26 +36,32 @@ jobs:
           grep -q 'dataset.geometryLocked = "true"' src/app-stable.js
           grep -q 'grid-template-columns: repeat(8' board-geometry-lock.css
           grep -q 'grid-template-rows: repeat(8' board-geometry-lock.css
-          grep -q 'premium-phase1.css?v=10' index.html
-          grep -q 'board-geometry-lock.css?v=10' index.html
-          grep -q 'src/app-stable.js?v=10' index.html
-          grep -q 'turn-guidance.css?v=10' index.html
-          grep -q 'Presentation-only layer' premium-phase1.css
+          grep -q '<canvas id="board-3d"' index.html
+          grep -q 'premium-phase1.css?v=11' index.html
+          grep -q 'webgl-phase2.css?v=11' index.html
+          grep -q 'board-geometry-lock.css?v=11' index.html
+          grep -q 'src/board3d.js?v=11' index.html
+          grep -q 'src/app-stable.js?v=11' index.html
+          grep -q "from'./board3d-meshes.js'" src/board3d.js
+          grep -q "getContext('webgl2'" src/board3d.js
+          grep -q 'pointer-events: none' webgl-phase2.css
+          grep -q 'webgl-3d-unavailable' webgl-phase2.css
 
-          premium_line=$(grep -n 'premium-phase1.css?v=10' index.html | head -1 | cut -d: -f1)
-          geometry_line=$(grep -n 'board-geometry-lock.css?v=10' index.html | head -1 | cut -d: -f1)
-          if [ "$premium_line" -ge "$geometry_line" ]; then
-            echo "Geometry lock must load after the premium presentation layer."
+          premium_line=$(grep -n 'premium-phase1.css?v=11' index.html | head -1 | cut -d: -f1)
+          webgl_line=$(grep -n 'webgl-phase2.css?v=11' index.html | head -1 | cut -d: -f1)
+          geometry_line=$(grep -n 'board-geometry-lock.css?v=11' index.html | head -1 | cut -d: -f1)
+          if [ "$premium_line" -ge "$webgl_line" ] || [ "$webgl_line" -ge "$geometry_line" ]; then
+            echo "Unsafe premium/WebGL/geometry stylesheet order."
             exit 1
           fi
 
-          if grep -Eq '(^|[,{[:space:]])\.board([[:space:]{>,:#])' premium-phase1.css; then
-            echo "Premium presentation layer directly targets the board container."
+          if grep -Eq 'grid-template|aspect-ratio|--locked-board-size|--locked-cell-size' premium-phase1.css webgl-phase2.css; then
+            echo "Presentation layer attempted to control board geometry."
             exit 1
           fi
 
-          if grep -Eq 'grid-template|aspect-ratio|--locked-board-size|--locked-cell-size' premium-phase1.css; then
-            echo "Premium presentation layer attempted to control board geometry."
+          if grep -Eq 'ChessGame|game\.play|engine-stable|applyLegalMove|generateLegalMoves' src/board3d.js src/board3d-meshes.js; then
+            echo "WebGL presentation attempted to access or mutate chess state."
             exit 1
           fi
 
@@ -131,7 +139,7 @@ jobs:
           NODE
 
   deploy:
-    name: Publish premium phase one live game
+    name: Publish WebGL phase two foundation
     needs: [fast-tests, canonical-perft]
     environment:
       name: github-pages
@@ -147,43 +155,38 @@ jobs:
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
 
-      - name: Build premium geometry-locked deployment package
+      - name: Build WebGL geometry-locked deployment package
         shell: bash
         run: |
           rm -rf site
           cp -R CrownforgeChess_WebCheckpoint1/dist site
-          cp index.html styles.css last-move.css turn-guidance.css premium-phase1.css board-geometry-lock.css manifest.webmanifest service-worker.js site/
+          cp index.html styles.css last-move.css turn-guidance.css premium-phase1.css webgl-phase2.css board-geometry-lock.css manifest.webmanifest service-worker.js site/
           mkdir -p site/src site/public
-          cp src/app-stable.js src/feedback.js site/src/
+          cp src/app-stable.js src/feedback.js src/board3d.js src/board3d-meshes.js site/src/
           cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
           cp -R public/. site/public/
 
           node --check site/src/app-stable.js
           node --check site/src/engine-stable.js
           node --check site/src/feedback.js
+          node --check site/src/board3d.js
+          node --check site/src/board3d-meshes.js
           node --check site/service-worker.js
-          grep -q 'src/app-stable.js?v=10' site/index.html
-          grep -q 'premium-phase1.css?v=10' site/index.html
-          grep -q 'board-geometry-lock.css?v=10' site/index.html
+          grep -q '<canvas id="board-3d"' site/index.html
+          grep -q 'src/board3d.js?v=11' site/index.html
+          grep -q 'webgl-phase2.css?v=11' site/index.html
+          grep -q 'board-geometry-lock.css?v=11' site/index.html
           grep -q 'dataset.orientation = "white"' site/src/app-stable.js
           grep -q 'dataset.geometryLocked = "true"' site/src/app-stable.js
-          grep -q 'grid-template-columns: repeat(8' site/board-geometry-lock.css
-          grep -q 'grid-template-rows: repeat(8' site/board-geometry-lock.css
-
-          premium_line=$(grep -n 'premium-phase1.css?v=10' site/index.html | head -1 | cut -d: -f1)
-          geometry_line=$(grep -n 'board-geometry-lock.css?v=10' site/index.html | head -1 | cut -d: -f1)
-          if [ "$premium_line" -ge "$geometry_line" ]; then
-            echo "Deployment package has unsafe stylesheet order."
-            exit 1
-          fi
+          grep -q 'pointer-events: none' site/webgl-phase2.css
 
           if grep -q 'DecompressionStream' site/src/engine-stable.js; then
             echo "Compressed browser engine loader reached deployment package."
             exit 1
           fi
 
-          if grep -Eq 'classList\.(add|remove)\("(move-impact|illegal)"' site/src/app-stable.js; then
-            echo "Whole-board animation trigger reached deployment package."
+          if grep -Eq 'ChessGame|game\.play|engine-stable|applyLegalMove|generateLegalMoves' site/src/board3d.js site/src/board3d-meshes.js; then
+            echo "WebGL presentation reached into the chess engine."
             exit 1
           fi
 
@@ -198,7 +201,7 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload premium playable PWA
+      - name: Upload WebGL playable PWA
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
