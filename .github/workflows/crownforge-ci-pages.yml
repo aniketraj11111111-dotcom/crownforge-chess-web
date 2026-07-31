@@ -28,7 +28,9 @@ jobs:
           node --check src/feedback.js
           node --check service-worker.js
           grep -q 'dataset.orientation = "white"' src/app-stable.js
-          grep -q 'src/app-stable.js?v=7' index.html
+          grep -q 'document.body.dataset.turn' src/app-stable.js
+          grep -q 'src/app-stable.js?v=8' index.html
+          grep -q 'turn-guidance.css?v=8' index.html
           if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app-stable.js; then
             echo "Board rotation code or controls were detected."
             exit 1
@@ -114,7 +116,7 @@ jobs:
         run: |
           rm -rf site
           cp -R CrownforgeChess_WebCheckpoint1/dist site
-          cp index.html styles.css last-move.css manifest.webmanifest service-worker.js site/
+          cp index.html styles.css last-move.css turn-guidance.css manifest.webmanifest service-worker.js site/
           mkdir -p site/src site/public
           cp src/app-stable.js src/feedback.js site/src/
           cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
@@ -124,8 +126,10 @@ jobs:
           node --check site/src/engine-stable.js
           node --check site/src/feedback.js
           node --check site/service-worker.js
-          grep -q 'src/app-stable.js?v=7' site/index.html
+          grep -q 'src/app-stable.js?v=8' site/index.html
+          grep -q 'turn-guidance.css?v=8' site/index.html
           grep -q 'dataset.orientation = "white"' site/src/app-stable.js
+          grep -q 'document.body.dataset.turn' site/src/app-stable.js
           if grep -q 'DecompressionStream' site/src/engine-stable.js; then
             echo "Compressed browser engine loader reached deployment package."
             exit 1
