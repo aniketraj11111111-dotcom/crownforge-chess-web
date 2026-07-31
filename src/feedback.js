@@ -5,8 +5,7 @@
   if (!history || !victory || !status) return;
 
   let audioContext = null;
-  let lastHistoryCount = history.children.length;
-  let lastStatus = status.textContent || '';
+  let lastHistorySignature = history.textContent || '';
 
   function getAudioContext() {
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -59,19 +58,17 @@
     if (context?.state === 'suspended') void context.resume();
   }, { once: true, passive: true });
 
+  // The history is rendered in full-move rows, so counting <li> elements misses
+  // every Black move. Compare the rendered move signature instead, which changes
+  // after every authoritative half-move while remaining unchanged on selection-only renders.
   const historyObserver = new MutationObserver(() => {
-    const count = history.children.length;
-    const nextStatus = status.textContent || '';
-    if (count > lastHistoryCount) playMoveFeedback(/check/i.test(nextStatus));
-    lastHistoryCount = count;
-    lastStatus = nextStatus;
+    const nextSignature = history.textContent || '';
+    if (nextSignature && nextSignature !== lastHistorySignature) {
+      playMoveFeedback(/check/i.test(status.textContent || ''));
+    }
+    lastHistorySignature = nextSignature;
   });
-  historyObserver.observe(history, { childList: true });
-
-  const statusObserver = new MutationObserver(() => {
-    lastStatus = status.textContent || '';
-  });
-  statusObserver.observe(status, { childList: true, characterData: true, subtree: true });
+  historyObserver.observe(history, { childList: true, subtree: true, characterData: true });
 
   const victoryObserver = new MutationObserver(() => {
     if (victory.classList.contains('show')) playTerminalFeedback();
