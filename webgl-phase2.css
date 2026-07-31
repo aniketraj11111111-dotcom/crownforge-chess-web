@@ -1,0 +1,60 @@
+/*
+ * Crownforge Premium Phase 2A — offline WebGL piece layer
+ * --------------------------------------------------------
+ * Presentation only. The canvas is locked to the already immutable board
+ * rectangle and never participates in layout, input, chess state, or grid
+ * sizing. The original glyph pieces remain as the automatic fallback.
+ */
+
+.board-stage {
+  position: relative;
+}
+
+#board-3d {
+  position: absolute;
+  inset: auto;
+  display: block;
+  pointer-events: none;
+  touch-action: none;
+  z-index: 3;
+  opacity: 0;
+  transform: none;
+  transition: opacity 180ms ease;
+  contain: strict;
+}
+
+.board {
+  position: relative;
+  z-index: 2;
+}
+
+.webgl-3d-ready #board-3d[data-ready="true"] {
+  opacity: 1;
+}
+
+.webgl-3d-ready .board .piece {
+  opacity: 0 !important;
+  visibility: hidden;
+  animation: none !important;
+  transition: none !important;
+}
+
+.webgl-3d-ready .square.selected::before,
+.webgl-3d-ready .square.legal-target::after,
+.webgl-3d-ready .square.capture-target::after,
+.webgl-3d-ready .square.last-from::before,
+.webgl-3d-ready .square.last-to::before,
+.webgl-3d-ready .rank-label,
+.webgl-3d-ready .file-label {
+  z-index: 4;
+}
+
+.webgl-3d-unavailable #board-3d {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #board-3d {
+    transition: none;
+  }
+}
