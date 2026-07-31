@@ -1,4 +1,4 @@
-const CACHE = "crownforge-v12-webgl-alignment-repair";
+const CACHE = "crownforge-v13-premium-piece-silhouettes";
 const APP_SHELL = [
   "./",
   "./index.html",
