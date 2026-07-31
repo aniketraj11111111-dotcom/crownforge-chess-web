@@ -1,16 +1,19 @@
-const CACHE = "crownforge-v10-premium-phase1";
+const CACHE = "crownforge-v11-webgl-phase2a";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=10",
-  "./last-move.css?v=10",
-  "./turn-guidance.css?v=10",
-  "./premium-phase1.css?v=10",
-  "./board-geometry-lock.css?v=10",
-  "./src/app-stable.js?v=10",
+  "./styles.css?v=11",
+  "./last-move.css?v=11",
+  "./turn-guidance.css?v=11",
+  "./premium-phase1.css?v=11",
+  "./webgl-phase2.css?v=11",
+  "./board-geometry-lock.css?v=11",
+  "./src/app-stable.js?v=11",
+  "./src/board3d.js?v=11",
+  "./src/board3d-meshes.js",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=10",
-  "./manifest.webmanifest?v=10",
+  "./src/feedback.js?v=11",
+  "./manifest.webmanifest?v=11",
   "./public/icon.svg"
 ];
 
