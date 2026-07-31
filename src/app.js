@@ -15,6 +15,7 @@ const rematchBtn = document.querySelector("#rematch");
 let game = new ChessGame();
 let selected = null;
 let selectedMoves = [];
+let lastMove = null;
 let whiteBottom = true;
 let inputLocked = false;
 const statusNames = {
@@ -48,6 +49,10 @@ function render() {
         cell.className = `square ${(square.file + square.rank) % 2 ? "light" : "dark"}`;
         cell.dataset.square = square.toString();
         cell.setAttribute("aria-label", `${square}${piece ? ` ${Side[piece.side]} ${PieceType[piece.type]}` : " empty"}`);
+        if (lastMove?.from.index === square.index)
+            cell.classList.add("last-from");
+        if (lastMove?.to.index === square.index)
+            cell.classList.add("last-to");
         if (selected?.index === square.index)
             cell.classList.add("selected");
         if (legalTargets.has(square.index))
@@ -132,6 +137,7 @@ async function onSquare(square) {
     }
     inputLocked = true;
     game.play(move);
+    lastMove = move;
     selected = null;
     selectedMoves = [];
     boardEl.classList.add("move-impact");
@@ -151,7 +157,7 @@ async function showTerminal() {
     victoryText.textContent = winner ? `${winner} WINS` : statusNames[game.outcome.status].toUpperCase();
     victory.classList.add("show");
 }
-function restart() { game = new ChessGame(); selected = null; selectedMoves = []; whiteBottom = true; inputLocked = false; victory.classList.remove("show"); document.body.classList.remove("cinematic"); render(); }
+function restart() { game = new ChessGame(); selected = null; selectedMoves = []; lastMove = null; whiteBottom = true; inputLocked = false; victory.classList.remove("show"); document.body.classList.remove("cinematic"); render(); }
 restartBtn.addEventListener("click", restart);
 rematchBtn.addEventListener("click", restart);
 rotateBtn.addEventListener("click", () => { whiteBottom = !whiteBottom; render(); });
