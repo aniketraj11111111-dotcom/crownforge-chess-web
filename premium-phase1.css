@@ -1,0 +1,267 @@
+/*
+ * Crownforge Premium Phase 1
+ * Presentation-only layer. This file must never control board dimensions,
+ * grid tracks, orientation, or chess state. Geometry lock loads after it.
+ */
+
+:root {
+  --premium-gold-bright: #f4d891;
+  --premium-gold: #c99c4c;
+  --premium-bronze: #7d4e28;
+  --premium-ink: #08090d;
+  --premium-panel: rgba(20, 18, 17, 0.82);
+  --premium-line: rgba(244, 216, 145, 0.22);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(205, 144, 66, 0.18), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(120, 72, 38, 0.12), transparent 32%),
+    linear-gradient(155deg, #18120f 0%, #090a0e 42%, #050609 100%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.22;
+  background-image:
+    repeating-linear-gradient(115deg, transparent 0 4px, rgba(255,255,255,0.012) 4px 5px),
+    repeating-linear-gradient(25deg, transparent 0 11px, rgba(203,156,76,0.012) 11px 12px);
+  mix-blend-mode: screen;
+}
+
+.app-shell {
+  isolation: isolate;
+}
+
+header {
+  position: relative;
+  padding: 4px 2px 2px;
+}
+
+header::after {
+  content: "LOCAL • OFFLINE";
+  position: absolute;
+  right: 62px;
+  top: 8px;
+  color: rgba(244, 216, 145, 0.62);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+h1 {
+  color: #fff9eb;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.65), 0 12px 30px rgba(0,0,0,0.34);
+}
+
+.eyebrow {
+  text-shadow: 0 0 18px rgba(216,178,100,0.28);
+}
+
+.crest {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(244,216,145,0.34);
+  border-radius: 50%;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,245,203,0.22), transparent 30%),
+    linear-gradient(145deg, rgba(125,78,40,0.72), rgba(20,14,11,0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -8px 18px rgba(0,0,0,0.42),
+    0 12px 30px rgba(0,0,0,0.44),
+    0 0 0 5px rgba(216,178,100,0.05);
+}
+
+.status-card,
+.history-panel {
+  border-color: var(--premium-line);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.045), transparent 42%),
+    var(--premium-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.055),
+    0 18px 42px rgba(0,0,0,0.26);
+}
+
+.status-card strong {
+  color: #fff7e5;
+  letter-spacing: 0.01em;
+}
+
+.status-card span {
+  color: rgba(233,225,209,0.63);
+}
+
+.board-stage {
+  border: 1px solid rgba(244,216,145,0.28);
+  background:
+    linear-gradient(135deg, rgba(255,244,205,0.12), transparent 18%),
+    linear-gradient(145deg, #7a4f2e 0%, #3b2116 34%, #1a0e0a 70%, #0b0706 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.15),
+    inset 0 -14px 28px rgba(0,0,0,0.34),
+    0 34px 90px rgba(0,0,0,0.68),
+    0 0 0 1px rgba(0,0,0,0.62),
+    0 0 0 7px rgba(216,178,100,0.035);
+}
+
+.board-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0.85%;
+  border-radius: 18px;
+  pointer-events: none;
+  z-index: 4;
+  border: 1px solid rgba(255,232,170,0.22);
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.58),
+    inset 0 0 24px rgba(255,217,138,0.055);
+}
+
+.square.light {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.16), transparent 34%),
+    repeating-linear-gradient(8deg, rgba(111,73,39,0.035) 0 1px, transparent 1px 6px),
+    linear-gradient(145deg, #ead49f, #c9a76c 72%, #b88d57);
+}
+
+.square.dark {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.07), transparent 34%),
+    repeating-linear-gradient(8deg, rgba(255,221,160,0.025) 0 1px, transparent 1px 6px),
+    linear-gradient(145deg, #75472e, #4a281a 70%, #321a12);
+}
+
+.square.selected::before {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  pointer-events: none;
+  border: 2px solid rgba(255,229,154,0.88);
+  box-shadow:
+    inset 0 0 18px rgba(255,222,126,0.2),
+    0 0 20px rgba(255,215,103,0.22);
+}
+
+.piece {
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  transition: transform 160ms cubic-bezier(.2,.8,.2,1), filter 180ms ease, opacity 120ms ease;
+}
+
+.piece.white {
+  color: #fff6dc;
+  text-shadow:
+    0 -1px 0 #fffdf3,
+    0 1px 0 #d7bd82,
+    0 2px 0 #b48a4e,
+    0 3px 0 #76502d,
+    0 7px 10px rgba(0,0,0,0.48);
+  filter:
+    drop-shadow(0 9px 5px rgba(0,0,0,0.38))
+    drop-shadow(0 0 8px rgba(255,235,181,0.12));
+}
+
+.piece.black {
+  color: #17120e;
+  text-shadow:
+    0 -1px 0 #8d6a47,
+    0 1px 0 #0b0908,
+    0 2px 0 #050403,
+    0 3px 0 #000,
+    0 7px 10px rgba(0,0,0,0.72);
+  filter:
+    drop-shadow(0 9px 5px rgba(0,0,0,0.52))
+    drop-shadow(0 0 6px rgba(211,157,80,0.08));
+}
+
+.square.selected .piece {
+  transform: translateY(-7%) scale(1.055);
+  filter:
+    drop-shadow(0 12px 7px rgba(0,0,0,0.46))
+    drop-shadow(0 0 16px rgba(255,214,106,0.25));
+}
+
+.controls button,
+.victory button {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(244,216,145,0.34);
+  color: #f8e9be;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.07), transparent 38%),
+    linear-gradient(145deg, #4a321d, #201710 68%, #110e0b);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    inset 0 -8px 16px rgba(0,0,0,0.22),
+    0 10px 24px rgba(0,0,0,0.24);
+  transition: filter 160ms ease, box-shadow 160ms ease;
+}
+
+.controls button:not(:disabled):active,
+.victory button:active {
+  filter: brightness(1.12);
+  box-shadow:
+    inset 0 2px 8px rgba(0,0,0,0.35),
+    0 4px 12px rgba(0,0,0,0.22);
+}
+
+.history-panel h2 {
+  color: var(--premium-gold-bright);
+  text-shadow: 0 0 14px rgba(216,178,100,0.16);
+}
+
+.history-panel ol {
+  scrollbar-color: rgba(216,178,100,0.42) transparent;
+}
+
+.history-panel li {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+dialog {
+  border-color: rgba(244,216,145,0.42);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.06), transparent 35%),
+    #111015;
+}
+
+.promotion-grid button {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 24px rgba(0,0,0,0.28);
+}
+
+.victory-card {
+  border: 1px solid rgba(244,216,145,0.24);
+  border-radius: 28px;
+  background: radial-gradient(circle at top, rgba(216,178,100,0.12), rgba(10,10,13,0.78) 58%);
+  box-shadow: 0 34px 100px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+
+@media (max-width: 620px) {
+  header::after {
+    display: none;
+  }
+
+  .crest {
+    padding: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece,
+  .controls button,
+  .victory button {
+    transition: none !important;
+  }
+}
