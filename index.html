@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0c0d12">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./last-move.css">
+  <link rel="manifest" href="./manifest.webmanifest?v=7">
+  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./last-move.css?v=7">
 </head>
 <body>
   <main class="app-shell">
@@ -16,7 +16,7 @@
       <div class="crest">♔</div>
     </header>
     <section class="status-card">
-      <strong id="status">White to move</strong>
+      <strong id="status">Loading verified chessboard…</strong>
       <span id="substatus"></span>
     </section>
     <section class="game-layout">
@@ -35,6 +35,7 @@
       </aside>
     </section>
   </main>
+
   <dialog id="promotion-dialog">
     <h2>Choose promotion</h2>
     <div class="promotion-grid">
@@ -44,6 +45,7 @@
       <button data-promotion="2">♘<span>Knight</span></button>
     </div>
   </dialog>
+
   <div id="victory" class="victory">
     <div class="victory-beam"></div>
     <div class="victory-card">
@@ -53,7 +55,31 @@
       <button id="rematch">Rematch</button>
     </div>
   </div>
-  <script src="./src/feedback.js" defer></script>
-  <script type="module" src="./src/app.js"></script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js?v=7").catch(() => {});
+      });
+    }
+
+    window.addEventListener("error", () => {
+      const board = document.querySelector("#board");
+      const status = document.querySelector("#status");
+      if (board && status && board.children.length === 0) {
+        status.textContent = "Game update loading — refresh once";
+      }
+    });
+
+    window.setTimeout(() => {
+      const board = document.querySelector("#board");
+      const status = document.querySelector("#status");
+      if (board && status && board.children.length !== 64) {
+        status.textContent = "Game update loading — refresh once";
+      }
+    }, 5000);
+  </script>
+  <script src="./src/feedback.js?v=7" defer></script>
+  <script type="module" src="./src/app-stable.js?v=7"></script>
 </body>
 </html>
