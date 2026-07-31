@@ -16,23 +16,40 @@ concurrency:
 
 jobs:
   fast-tests:
-    name: Engine, rules and fixed-board tests
+    name: Engine, rules and immutable-board tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify stable fixed-board UI
+      - name: Verify fixed orientation and immutable 8x8 geometry
         shell: bash
         run: |
           node --check src/app-stable.js
           node --check src/feedback.js
           node --check service-worker.js
+
           grep -q 'dataset.orientation = "white"' src/app-stable.js
-          grep -q 'document.body.dataset.turn' src/app-stable.js
-          grep -q 'src/app-stable.js?v=8' index.html
-          grep -q 'turn-guidance.css?v=8' index.html
+          grep -q 'function lockBoardGeometry' src/app-stable.js
+          grep -q 'cellViews.size === 64' src/app-stable.js
+          grep -q 'dataset.geometryLocked = "true"' src/app-stable.js
+          grep -q 'grid-template-columns: repeat(8' board-geometry-lock.css
+          grep -q 'grid-template-rows: repeat(8' board-geometry-lock.css
+          grep -q 'board-geometry-lock.css?v=9' index.html
+          grep -q 'src/app-stable.js?v=9' index.html
+          grep -q 'turn-guidance.css?v=9' index.html
+
           if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app-stable.js; then
             echo "Board rotation code or controls were detected."
+            exit 1
+          fi
+
+          if grep -Eq 'classList\.(add|remove)\("(move-impact|illegal)"' src/app-stable.js; then
+            echo "Whole-board animation trigger was detected."
+            exit 1
+          fi
+
+          if [ "$(grep -c 'boardEl.replaceChildren' src/app-stable.js)" -ne 1 ]; then
+            echo "Board DOM must be created once and reused after initial render."
             exit 1
           fi
 
@@ -95,7 +112,7 @@ jobs:
           NODE
 
   deploy:
-    name: Publish stable live game
+    name: Publish geometry-locked live game
     needs: [fast-tests, canonical-perft]
     environment:
       name: github-pages
@@ -111,12 +128,12 @@ jobs:
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
 
-      - name: Build stable deployment package
+      - name: Build geometry-locked deployment package
         shell: bash
         run: |
           rm -rf site
           cp -R CrownforgeChess_WebCheckpoint1/dist site
-          cp index.html styles.css last-move.css turn-guidance.css manifest.webmanifest service-worker.js site/
+          cp index.html styles.css last-move.css turn-guidance.css board-geometry-lock.css manifest.webmanifest service-worker.js site/
           mkdir -p site/src site/public
           cp src/app-stable.js src/feedback.js site/src/
           cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
@@ -126,12 +143,20 @@ jobs:
           node --check site/src/engine-stable.js
           node --check site/src/feedback.js
           node --check site/service-worker.js
-          grep -q 'src/app-stable.js?v=8' site/index.html
-          grep -q 'turn-guidance.css?v=8' site/index.html
+          grep -q 'src/app-stable.js?v=9' site/index.html
+          grep -q 'board-geometry-lock.css?v=9' site/index.html
           grep -q 'dataset.orientation = "white"' site/src/app-stable.js
-          grep -q 'document.body.dataset.turn' site/src/app-stable.js
+          grep -q 'dataset.geometryLocked = "true"' site/src/app-stable.js
+          grep -q 'grid-template-columns: repeat(8' site/board-geometry-lock.css
+          grep -q 'grid-template-rows: repeat(8' site/board-geometry-lock.css
+
           if grep -q 'DecompressionStream' site/src/engine-stable.js; then
             echo "Compressed browser engine loader reached deployment package."
+            exit 1
+          fi
+
+          if grep -Eq 'classList\.(add|remove)\("(move-impact|illegal)"' site/src/app-stable.js; then
+            echo "Whole-board animation trigger reached deployment package."
             exit 1
           fi
 
@@ -146,7 +171,7 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload stable playable PWA
+      - name: Upload geometry-locked playable PWA
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
