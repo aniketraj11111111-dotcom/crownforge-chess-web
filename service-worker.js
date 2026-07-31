@@ -1,13 +1,14 @@
-const CACHE = "crownforge-v7-stable";
+const CACHE = "crownforge-v8-turn-guidance";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=7",
-  "./last-move.css?v=7",
-  "./src/app-stable.js?v=7",
+  "./styles.css?v=8",
+  "./last-move.css?v=8",
+  "./turn-guidance.css?v=8",
+  "./src/app-stable.js?v=8",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=7",
-  "./manifest.webmanifest?v=7",
+  "./src/feedback.js?v=8",
+  "./manifest.webmanifest?v=8",
   "./public/icon.svg"
 ];
 
