@@ -1,4 +1,4 @@
-const CACHE="crownforge-v4";
+const CACHE="crownforge-v5";
 const APP_SHELL=[
   "./",
   "./index.html",
