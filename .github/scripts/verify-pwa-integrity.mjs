@@ -24,6 +24,8 @@ for (const file of [
   'src/screen-wake.js',
   'src/connectivity-status.js',
   'offline-status.css',
+  'src/fullscreen-control.js',
+  'fullscreen-control.css',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -167,6 +169,24 @@ for (const contract of [
 }
 if (/ChessGame|makeMove|getLegalMoves/.test(connectivityStatus)) {
   fail('connectivity status must remain presentation-only');
+}
+
+const fullscreenControl = read('src/fullscreen-control.js');
+for (const contract of [
+  ['dedicated fullscreen target', /querySelector\(["']#fullscreen-app["']\)/],
+  ['fullscreen feature detection', /document\.fullscreenEnabled/],
+  ['standalone-mode guard', /display-mode:\s*standalone/],
+  ['fullscreen request', /requestFullscreen\s*\(/],
+  ['fullscreen exit', /document\.exitFullscreen\s*\(/],
+  ['fullscreen lifecycle', /fullscreenchange/],
+  ['pressed-state semantics', /aria-pressed/],
+]) {
+  if (!contract[1].test(fullscreenControl)) {
+    fail(`fullscreen control contract missing: ${contract[0]}`);
+  }
+}
+if (/ChessGame|makeMove|getLegalMoves/.test(fullscreenControl)) {
+  fail('fullscreen control must remain presentation-only');
 }
 
 if (!process.exitCode) {
