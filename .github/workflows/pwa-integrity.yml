@@ -44,6 +44,7 @@ jobs:
           node --check src/board3d-meshes.js
           node --check src/engine-stable.js
           node --check src/feedback.js
+          node --check src/premium-soundtrack.js
 
       - name: Verify offline app-shell integrity
         run: node .github/scripts/verify-pwa-integrity.mjs
