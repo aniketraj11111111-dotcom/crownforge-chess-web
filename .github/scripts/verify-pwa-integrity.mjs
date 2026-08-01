@@ -17,6 +17,7 @@ for (const file of [
   'src/app-stable.js',
   'src/engine-stable.js',
   'src/keyboard-nav.js',
+  'src/promotion-focus.js',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -89,6 +90,19 @@ for (const contract of [
 ]) {
   if (!contract[1].test(keyboardNavigation)) {
     fail(`keyboard navigation contract missing: ${contract[0]}`);
+  }
+}
+
+const promotionFocus = read('src/promotion-focus.js');
+for (const contract of [
+  ['promotion dialog label', /aria-labelledby/],
+  ['promotion modal semantics', /aria-modal/],
+  ['promotion choice focus', /buttons\[0\]\?\.focus/],
+  ['board focus restoration', /target\.focus\(\{\s*preventScroll:\s*true\s*\}\)/],
+  ['four promotion choices', /buttons\.length\s*!==\s*4/],
+]) {
+  if (!contract[1].test(promotionFocus)) {
+    fail(`promotion focus contract missing: ${contract[0]}`);
   }
 }
 
