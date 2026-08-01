@@ -1,0 +1,54 @@
+.pwa-status-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.35rem 0 0.75rem;
+}
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.75rem;
+  padding: 0.32rem 0.68rem;
+  border: 1px solid rgba(205, 164, 91, 0.26);
+  border-radius: 999px;
+  background: rgba(10, 8, 7, 0.72);
+  color: rgba(244, 232, 207, 0.78);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(12px);
+}
+
+.connection-status::before {
+  content: "";
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0.7rem currentColor;
+  opacity: 0.8;
+}
+
+.connection-status[data-connection="ready"] {
+  color: #d7bd7a;
+}
+
+.connection-status[data-connection="offline"] {
+  color: #e3c58d;
+}
+
+.connection-status[data-connection="preparing"]::before {
+  animation: crownforge-status-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes crownforge-status-pulse {
+  50% { opacity: 0.25; transform: scale(0.72); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connection-status[data-connection="preparing"]::before {
+    animation: none;
+  }
+}
