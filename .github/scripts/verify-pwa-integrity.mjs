@@ -26,6 +26,8 @@ for (const file of [
   'offline-status.css',
   'src/fullscreen-control.js',
   'fullscreen-control.css',
+  'src/premium-soundtrack.js',
+  'premium-soundtrack.css',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -187,6 +189,34 @@ for (const contract of [
 }
 if (/ChessGame|makeMove|getLegalMoves/.test(fullscreenControl)) {
   fail('fullscreen control must remain presentation-only');
+}
+
+const premiumSoundtrack = read('src/premium-soundtrack.js');
+for (const contract of [
+  ['dedicated soundtrack target', /querySelector\(["']#soundtrack-toggle["']\)/],
+  ['user-gesture activation', /addEventListener\(["']pointerdown["']/],
+  ['keyboard activation', /addEventListener\(["']keydown["']/],
+  ['Web Audio feature detection', /window\.AudioContext\s*\|\|\s*window\.webkitAudioContext/],
+  ['master dynamics protection', /createDynamicsCompressor\s*\(/],
+  ['local concert-hall reverb', /createConvolver\s*\(/],
+  ['persistent listener preference', /localStorage\.setItem\(STORAGE_KEY/],
+  ['visibility lifecycle', /visibilitychange/],
+  ['accessible pressed state', /aria-pressed/],
+  ['original score identity', /The Crown at Dusk/],
+]) {
+  if (!contract[1].test(premiumSoundtrack)) {
+    fail(`premium soundtrack contract missing: ${contract[0]}`);
+  }
+}
+const masterGain = Number(premiumSoundtrack.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
+if (!Number.isFinite(masterGain) || masterGain <= 0 || masterGain > 0.14) {
+  fail(`premium soundtrack master gain must remain subtle and bounded; found ${masterGain}`);
+}
+if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(premiumSoundtrack)) {
+  fail('premium soundtrack must remain presentation-only');
+}
+if (/\bfetch\s*\(|XMLHttpRequest|WebSocket|https?:\/\//.test(premiumSoundtrack)) {
+  fail('premium soundtrack must remain original, local and offline-only');
 }
 
 if (!process.exitCode) {
