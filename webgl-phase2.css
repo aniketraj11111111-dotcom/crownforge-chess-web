@@ -1,9 +1,5 @@
-/*
- * Crownforge Premium Phase 2A — fail-safe offline WebGL piece layer
- * -----------------------------------------------------------------
- * The canvas is an absolute, non-interactive presentation overlay. It never
- * participates in layout or input. DOM pieces stay visible until JavaScript
- * proves that the canvas rectangle exactly matches the immutable board.
+/* Crownforge Premium WebGL board and piece layer.
+ * The DOM grid remains the immutable input/accessibility layer.
  */
 
 .board-stage {
@@ -21,21 +17,20 @@
   z-index: 3;
   opacity: 0;
   transform: none;
-  transition: opacity 120ms ease;
+  transition: opacity 140ms ease, filter 520ms ease;
   contain: strict;
+  filter: saturate(1.04) contrast(1.035) drop-shadow(0 14px 18px rgba(0,0,0,.28));
 }
 
 .board {
   position: relative;
-  z-index: 2;
+  z-index: 4;
 }
 
-/* WebGL is shown only after both rendering and pixel alignment succeed. */
 .webgl-3d-ready #board-3d[data-ready="true"][data-aligned="true"] {
   opacity: 1;
 }
 
-/* The known-working DOM pieces are hidden only under the same strict gate. */
 .webgl-3d-ready #board-3d[data-ready="true"][data-aligned="true"] + .board .piece {
   opacity: 0 !important;
   visibility: hidden;
@@ -43,7 +38,12 @@
   transition: none !important;
 }
 
-/* Any mismatch immediately returns to the verified DOM-piece fallback. */
+.webgl-3d-ready #board-3d[data-ready="true"][data-aligned="true"] + .board .square.light,
+.webgl-3d-ready #board-3d[data-ready="true"][data-aligned="true"] + .board .square.dark {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 #board-3d[data-aligned="false"],
 #board-3d[data-ready="false"],
 .webgl-3d-unavailable #board-3d {
@@ -63,7 +63,15 @@ html:not(.webgl-3d-ready) .board .piece {
 .webgl-3d-ready .square.last-to::before,
 .webgl-3d-ready .rank-label,
 .webgl-3d-ready .file-label {
-  z-index: 4;
+  z-index: 6;
+}
+
+body.terminal-strike #board-3d {
+  filter: brightness(1.16) saturate(.86) contrast(1.11) drop-shadow(0 0 28px rgba(244,216,145,.24));
+}
+
+body.cinematic #board-3d {
+  filter: brightness(.62) saturate(.72) contrast(1.08) blur(.35px);
 }
 
 @media (prefers-reduced-motion: reduce) {
