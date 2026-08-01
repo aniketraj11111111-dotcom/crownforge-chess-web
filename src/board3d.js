@@ -4,9 +4,11 @@ import {
   translate,
   scale,
   multiply,
-  ortho,
+  rotateX,
+  rotateY,
+  boardProjection,
   normal3,
-} from "./board3d-meshes.js";
+} from "./board3d-meshes.js?v=30";
 
 const canvas = document.querySelector("#board-3d");
 const board = document.querySelector("#board");
@@ -54,10 +56,12 @@ uniform mat4 VP;
 uniform mat3 N;
 out vec3 vN;
 out vec3 vP;
+out vec3 vLocal;
 void main(){
   vec4 world=M*vec4(p,1.0);
   vP=world.xyz;
   vN=normalize(N*n);
+  vLocal=p;
   gl_Position=VP*world;
 }`;
 
@@ -65,38 +69,106 @@ void main(){
 precision highp float;
 in vec3 vN;
 in vec3 vP;
+in vec3 vLocal;
 uniform vec3 base;
-uniform vec3 shine;
-uniform float gloss;
+uniform vec3 emission;
+uniform float roughness;
+uniform float metallic;
 uniform float alpha;
 uniform float material;
-uniform float glow;
 out vec4 outColor;
-float hash(vec2 p){
-  return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);
+
+const float PI=3.14159265359;
+
+float hash21(vec2 p){
+  p=fract(p*vec2(123.34,456.21));
+  p+=dot(p,p+45.32);
+  return fract(p.x*p.y);
 }
+
+float distributionGGX(vec3 Nn,vec3 H,float r){
+  float a=r*r;
+  float a2=a*a;
+  float nDotH=max(dot(Nn,H),0.0);
+  float denominator=nDotH*nDotH*(a2-1.0)+1.0;
+  return a2/max(PI*denominator*denominator,0.0001);
+}
+
+float geometrySchlick(float nDotV,float r){
+  float k=(r+1.0);
+  k=(k*k)/8.0;
+  return nDotV/max(nDotV*(1.0-k)+k,0.0001);
+}
+
+vec3 fresnelSchlick(float cosine,vec3 f0){
+  return f0+(1.0-f0)*pow(clamp(1.0-cosine,0.0,1.0),5.0);
+}
+
+vec3 evaluateLight(vec3 Nn,vec3 V,vec3 L,vec3 radiance,vec3 albedo,float r,float metal){
+  vec3 H=normalize(V+L);
+  float nDotL=max(dot(Nn,L),0.0);
+  float nDotV=max(dot(Nn,V),0.0);
+  float hDotV=max(dot(H,V),0.0);
+  vec3 f0=mix(vec3(0.045),albedo,metal);
+  vec3 F=fresnelSchlick(hDotV,f0);
+  float D=distributionGGX(Nn,H,r);
+  float G=geometrySchlick(nDotV,r)*geometrySchlick(nDotL,r);
+  vec3 specular=(D*G*F)/max(4.0*nDotV*nDotL,0.0001);
+  vec3 diffuse=(1.0-F)*(1.0-metal)*albedo/PI;
+  return (diffuse+specular)*radiance*nDotL;
+}
+
+vec3 acesToneMap(vec3 color){
+  const float a=2.51;
+  const float b=0.03;
+  const float c=2.43;
+  const float d=0.59;
+  const float e=0.14;
+  return clamp((color*(a*color+b))/(color*(c*color+d)+e),0.0,1.0);
+}
+
 void main(){
-  vec3 normal=normalize(vN);
-  vec3 keyDirection=normalize(vec3(-0.52,0.78,1.18));
-  vec3 fillDirection=normalize(vec3(0.72,-0.18,0.82));
-  vec3 rimDirection=normalize(vec3(0.12,0.48,-1.0));
-  vec3 viewDirection=vec3(0.0,0.0,1.0);
-  vec3 halfDirection=normalize(keyDirection+viewDirection);
-  float key=max(dot(normal,keyDirection),0.0);
-  float fill=max(dot(normal,fillDirection),0.0);
-  float rim=max(dot(normal,rimDirection),0.0);
-  float specular=pow(max(dot(normal,halfDirection),0.0),mix(16.0,72.0,gloss));
-  float fresnel=pow(1.0-max(dot(normal,viewDirection),0.0),2.4);
-  vec3 adjustedBase=base;
+  if(material>3.5 && material<4.5){
+    outColor=vec4(base,alpha);
+    return;
+  }
+
+  vec3 albedo=base;
   if(material>0.5 && material<3.5){
-    float grain=sin(vP.x*37.0+sin(vP.y*8.0))*0.018+hash(floor(vP.xy*18.0))*0.012;
-    adjustedBase*=1.0+grain;
+    float longGrain=sin(vP.x*54.0+sin(vP.y*2.8)*2.2);
+    float fineGrain=sin(vP.x*137.0+vP.y*9.0);
+    float pores=hash21(floor(vP.xy*48.0));
+    float grain=longGrain*.028+fineGrain*.009+(pores-.5)*.014;
+    albedo*=1.0+grain;
+  }else if(material>5.5 && material<6.5){
+    float ivoryVein=sin((vLocal.y+vLocal.x*.24-vLocal.z*.18)*83.0);
+    albedo*=1.0+ivoryVein*.012;
+  }else if(material>6.5 && material<7.5){
+    float ebonyVein=sin((vLocal.y+vLocal.z*.28)*96.0);
+    albedo+=vec3(.008,.004,.002)*(ebonyVein*.5+.5);
   }
-  vec3 color=adjustedBase*(0.27+0.68*key+0.16*fill)+shine*(specular*(0.18+0.82*gloss)+0.07*fresnel+0.035*rim);
-  color+=shine*glow*(0.13+0.22*fresnel);
-  if(material>3.5){
-    color=base;
+
+  vec3 Nn=normalize(vN);
+  vec3 V=normalize(vec3(-.08,-.62,1.2));
+  vec3 key=normalize(vec3(-.48,-.34,1.0));
+  vec3 fill=normalize(vec3(.62,.42,.7));
+  vec3 rim=normalize(vec3(-.18,.86,.42));
+  float r=clamp(roughness,.075,.92);
+
+  vec3 color=albedo*(.16+.12*max(Nn.z,0.0));
+  color+=evaluateLight(Nn,V,key,vec3(2.75,2.3,1.72),albedo,r,metallic);
+  color+=evaluateLight(Nn,V,fill,vec3(.48,.58,.78),albedo,min(.98,r+.1),metallic);
+  color+=evaluateLight(Nn,V,rim,vec3(.58,.34,.18),albedo,min(.98,r+.18),metallic);
+
+  if(material>5.5 && material<7.5){
+    float grounding=.72+.28*smoothstep(.055,.58,vP.z);
+    color*=grounding;
   }
+
+  float edge=pow(1.0-max(dot(Nn,V),0.0),3.0);
+  color+=emission*(.52+edge*.72);
+  color=acesToneMap(color);
+  color=pow(color,vec3(1.0/2.2));
   outColor=vec4(color,alpha);
 }`;
 
@@ -106,16 +178,30 @@ void main(){
     viewProjection: g.getUniformLocation(shaderProgram, "VP"),
     normal: g.getUniformLocation(shaderProgram, "N"),
     base: g.getUniformLocation(shaderProgram, "base"),
-    shine: g.getUniformLocation(shaderProgram, "shine"),
-    gloss: g.getUniformLocation(shaderProgram, "gloss"),
+    emission: g.getUniformLocation(shaderProgram, "emission"),
+    roughness: g.getUniformLocation(shaderProgram, "roughness"),
+    metallic: g.getUniformLocation(shaderProgram, "metallic"),
     alpha: g.getUniformLocation(shaderProgram, "alpha"),
     material: g.getUniformLocation(shaderProgram, "material"),
-    glow: g.getUniformLocation(shaderProgram, "glow"),
   };
 
-  const meshes = buildMeshes(g);
-  const boardMeshes = buildBoardMeshes(g);
-  const viewProjection = ortho(-4, 4, -4, 4, -8, 8);
+  const quality = selectQualityTier();
+  const meshes = buildMeshes(g, quality);
+  const boardMeshes = buildBoardMeshes(g, quality);
+  const viewProjection = boardProjection();
+  const triangleBudget = meshes.metrics.triangles + boardMeshes.metrics.triangles;
+  const pixelRatioCap = quality === "high" ? 2 : 1.5;
+
+  canvas.dataset.renderer = "staunton-pbr-oblique";
+  canvas.dataset.quality = quality;
+  canvas.dataset.meshTriangles = String(triangleBudget);
+  window.CROWNFORGE_3D_DIAGNOSTICS = Object.freeze({
+    renderer: "staunton-pbr-oblique",
+    quality,
+    uniqueMeshTriangles: triangleBudget,
+    engineAuthoritative: true,
+    hitGrid: "fixed-dom-64",
+  });
 
   let lastStateKey = "";
   let lastMoveAnimationKey = "";
@@ -145,7 +231,7 @@ void main(){
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
 
-    const pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+    const pixelRatio = Math.min(pixelRatioCap, Math.max(1, window.devicePixelRatio || 1));
     const bufferWidth = Math.round(width * pixelRatio);
     const bufferHeight = Math.round(height * pixelRatio);
 
@@ -277,17 +363,17 @@ void main(){
     for (const piece of state.pieces) {
       const position = animatedPosition(piece, timestamp);
       const shadowTransform = multiply(
-        translate(position.file - 3.5, position.rank - 3.79, .055),
-        scale(piece.type === "Pawn" ? .72 : .9, .9, .9),
+        translate(position.file - 3.5, position.rank - 3.5, .061),
+        scale(piece.type === "Pawn" ? .76 : .94, piece.type === "Pawn" ? .76 : .94, 1),
       );
       for (const part of meshes.Shadow) {
         drawMeshPart(part, multiply(shadowTransform, part.transform), {
-          base: [0.012, 0.009, 0.007],
-          shine: [0, 0, 0],
-          gloss: 0,
-          alpha: state.cinematic ? .36 : .24,
+          base: [.006, .004, .003],
+          emission: [0, 0, 0],
+          roughness: 1,
+          metallic: 0,
+          alpha: state.cinematic ? .42 : .31,
           material: 4,
-          glow: 0,
         });
       }
     }
@@ -301,28 +387,33 @@ void main(){
       const recent = state.lastMoveTo === piece.square;
 
       const baseScale = ({
-        Pawn: .71,
-        Knight: .80,
-        Rook: .75,
-        Bishop: .78,
-        Queen: .81,
-        King: .83,
-      })[piece.type] || .76;
+        Pawn: .82,
+        Knight: .87,
+        Rook: .84,
+        Bishop: .84,
+        Queen: .86,
+        King: .87,
+      })[piece.type] || .84;
 
-      const motionLift = position.progress < 1 ? Math.sin(position.progress * Math.PI) * .065 : 0;
-      const emphasis = selected ? 1.055 : recent ? 1.018 : 1;
-      const pieceTransform = multiply(
-        translate(
-          position.file - 3.5,
-          position.rank - 3.85 + motionLift,
-          .10 + (selected ? .04 : 0),
-        ),
+      const motionLift = position.progress < 1 ? Math.sin(position.progress * Math.PI) * .17 : 0;
+      const emphasis = selected ? 1.035 : recent ? 1.012 : 1;
+      let pieceTransform = translate(
+        position.file - 3.5,
+        position.rank - 3.5,
+        .064 + motionLift + (selected ? .055 : 0),
+      );
+      pieceTransform = multiply(pieceTransform, rotateX(Math.PI / 2));
+      if (piece.type === "Knight" && piece.side === "Black") {
+        pieceTransform = multiply(pieceTransform, rotateY(Math.PI));
+      }
+      pieceTransform = multiply(
+        pieceTransform,
         scale(baseScale * emphasis, baseScale * emphasis, baseScale * emphasis),
       );
 
       const palette = piecePalette(piece.side, checkedKing, selected || recent, state.cinematic);
       for (const part of meshes[piece.type] || meshes.Pawn) {
-        drawMeshPart(part, multiply(pieceTransform, part.transform), palette);
+        drawMeshPart(part, multiply(pieceTransform, part.transform), piecePartPalette(part.role, palette));
       }
     }
   }
@@ -348,11 +439,11 @@ void main(){
     g.uniformMatrix4fv(uniforms.model, false, model);
     g.uniformMatrix3fv(uniforms.normal, false, normal3(model));
     g.uniform3fv(uniforms.base, palette.base);
-    g.uniform3fv(uniforms.shine, palette.shine);
-    g.uniform1f(uniforms.gloss, palette.gloss);
+    g.uniform3fv(uniforms.emission, palette.emission ?? [0, 0, 0]);
+    g.uniform1f(uniforms.roughness, palette.roughness);
+    g.uniform1f(uniforms.metallic, palette.metallic ?? 0);
     g.uniform1f(uniforms.alpha, palette.alpha ?? 1);
     g.uniform1f(uniforms.material, palette.material ?? 0);
-    g.uniform1f(uniforms.glow, palette.glow ?? 0);
     g.bindVertexArray(part.vao);
     g.drawElements(g.TRIANGLES, part.count, g.UNSIGNED_SHORT, 0);
   }
@@ -433,34 +524,92 @@ void main(){
 
 function boardPalette(material) {
   if (material === "light") {
-    return { base: [.70, .48, .25], shine: [1.0, .86, .55], gloss: .44, alpha: 1, material: 1, glow: 0 };
+    return {
+      base: [.51, .28, .115], emission: [0, 0, 0], roughness: .31,
+      metallic: 0, alpha: 1, material: 1,
+    };
   }
   if (material === "dark") {
-    return { base: [.20, .085, .035], shine: [.66, .34, .14], gloss: .56, alpha: 1, material: 2, glow: 0 };
-  }
-  return { base: [.115, .045, .018], shine: [.82, .48, .19], gloss: .68, alpha: 1, material: 3, glow: 0 };
-}
-
-function piecePalette(side, checkedKing, emphasized, cinematic) {
-  const dim = cinematic ? .72 : 1;
-  if (side === "White") {
     return {
-      base: [.90 * dim, .78 * dim, .56 * dim],
-      shine: [1.0, .98, .86],
-      gloss: .74,
-      alpha: 1,
-      material: 0,
-      glow: checkedKing ? .95 : emphasized ? .34 : 0,
+      base: [.105, .028, .009], emission: [0, 0, 0], roughness: .25,
+      metallic: 0, alpha: 1, material: 2,
+    };
+  }
+  if (material === "frame-inner") {
+    return {
+      base: [.075, .015, .004], emission: [0, 0, 0], roughness: .2,
+      metallic: 0, alpha: 1, material: 3,
+    };
+  }
+  if (material === "brass") {
+    return {
+      base: [.59, .29, .052], emission: [.018, .008, .001], roughness: .16,
+      metallic: .82, alpha: 1, material: 5,
     };
   }
   return {
-    base: [.052 * dim, .036 * dim, .025 * dim],
-    shine: [.58, .34, .17],
-    gloss: .9,
-    alpha: 1,
-    material: 0,
-    glow: checkedKing ? .95 : emphasized ? .30 : 0,
+    base: [.135, .034, .009], emission: [0, 0, 0], roughness: .19,
+    metallic: 0, alpha: 1, material: 3,
   };
+}
+
+function piecePalette(side, checkedKing, emphasized, cinematic) {
+  const dim = cinematic ? .68 : 1;
+  if (side === "White") {
+    return {
+      base: [.79 * dim, .59 * dim, .34 * dim],
+      emission: checkedKing
+        ? [.34, .012, .004]
+        : emphasized ? [.095, .052, .012] : [0, 0, 0],
+      roughness: .2,
+      metallic: .03,
+      alpha: 1,
+      material: 6,
+    };
+  }
+  return {
+    base: [.028 * dim, .012 * dim, .0045 * dim],
+    emission: checkedKing
+      ? [.34, .009, .003]
+      : emphasized ? [.075, .035, .007] : [0, 0, 0],
+    roughness: .14,
+    metallic: .08,
+    alpha: 1,
+    material: 7,
+  };
+}
+
+function piecePartPalette(role, body) {
+  if (role === "accent") {
+    return {
+      base: [.6, .29, .05], emission: [.015, .006, .001], roughness: .14,
+      metallic: .86, alpha: 1, material: 5,
+    };
+  }
+  if (role === "eye" || role === "cut") {
+    return {
+      base: [.002, .0015, .001], emission: [0, 0, 0], roughness: .08,
+      metallic: .25, alpha: 1, material: 8,
+    };
+  }
+  if (role === "mane") {
+    return {
+      ...body,
+      base: body.base.map((value) => value * .74),
+      roughness: Math.min(1, body.roughness + .08),
+    };
+  }
+  if (role === "muzzle") {
+    return { ...body, roughness: Math.min(1, body.roughness + .06) };
+  }
+  return body;
+}
+
+function selectQualityTier() {
+  const memory = navigator.deviceMemory || 8;
+  const cores = navigator.hardwareConcurrency || 8;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  return memory >= 6 && cores >= 6 && !reducedMotion ? "high" : "balanced";
 }
 
 function pieceTypeFromGlyph(glyph) {

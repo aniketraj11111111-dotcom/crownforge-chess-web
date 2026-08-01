@@ -1,0 +1,66 @@
+.pwa-status-row {
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 0.4rem;
+}
+
+.soundtrack-toggle {
+  min-block-size: 2.25rem;
+  margin-inline-start: 0.45rem;
+  padding: 0.45rem 0.82rem;
+  border: 1px solid rgba(221, 185, 105, 0.42);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(54, 43, 29, 0.94), rgba(20, 16, 13, 0.98));
+  color: #ead8ae;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+  touch-action: manipulation;
+  cursor: pointer;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.soundtrack-toggle[data-audio-state="playing"] {
+  border-color: rgba(244, 214, 143, 0.72);
+  color: #fff0c6;
+  background: linear-gradient(180deg, rgba(87, 63, 32, 0.96), rgba(31, 22, 15, 0.99));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), 0 0 18px rgba(216, 178, 100, 0.13);
+}
+
+.soundtrack-toggle[data-audio-state="off"] {
+  color: rgba(234, 216, 174, 0.62);
+  border-color: rgba(221, 185, 105, 0.22);
+  background: rgba(16, 13, 11, 0.86);
+}
+
+.soundtrack-toggle:hover,
+.soundtrack-toggle:focus-visible {
+  border-color: rgba(244, 223, 173, 0.88);
+  color: #fff2cf;
+}
+
+.soundtrack-toggle:focus-visible {
+  outline: 2px solid #f4dfad;
+  outline-offset: 3px;
+}
+
+.soundtrack-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.soundtrack-toggle ~ button {
+  margin-inline-start: 0.45rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .soundtrack-toggle {
+    transition: transform 140ms ease, border-color 140ms ease, color 140ms ease, background 140ms ease;
+  }
+
+  .soundtrack-toggle:active:not(:disabled) {
+    transform: translateY(1px) scale(0.985);
+  }
+}

@@ -21,6 +21,7 @@ const required = [
   'offline-status.css',
   'install-control.css',
   'fullscreen-control.css',
+  'premium-soundtrack.css',
   'cinematic-endgame.css',
   'last-move.css',
   'turn-guidance.css',
@@ -34,6 +35,7 @@ const required = [
   'src/fullscreen-control.js',
   'src/install-control.js',
   'src/connectivity-status.js',
+  'src/premium-soundtrack.js',
   'public/icon.svg',
 ];
 
@@ -54,14 +56,14 @@ if (errors.length === 0) {
 
   const versions = [...index.matchAll(/[?&]v=(\d+)/g)].map((match) => match[1]);
   const uniqueVersions = new Set(versions);
-  if (uniqueVersions.size !== 1 || !uniqueVersions.has('29')) {
-    fail(`index asset versions must all be v29; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
+  if (uniqueVersions.size !== 1 || !uniqueVersions.has('30')) {
+    fail(`index asset versions must all be v30; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
   }
 
   for (const id of [
     'board', 'board-3d', 'status', 'substatus', 'history', 'restart',
     'claim-draw', 'promotion-dialog', 'victory', 'rematch',
-    'connection-status', 'fullscreen-app', 'install-app',
+    'connection-status', 'soundtrack-toggle', 'fullscreen-app', 'install-app',
   ]) {
     if (!new RegExp(`id=["']${id}["']`).test(index)) fail(`required UI id is missing: ${id}`);
   }
@@ -99,15 +101,42 @@ if (errors.length === 0) {
     fail('presentation renderer attempted to own chess state');
   }
 
+  const soundtrack = read('src/premium-soundtrack.js');
+  if (!/createDynamicsCompressor\s*\(/.test(soundtrack) ||
+      !/createWaveShaper\s*\(/.test(soundtrack) ||
+      !/createConvolver\s*\(/.test(soundtrack)) {
+    fail('premium soundtrack mastering graph is incomplete');
+  }
+  if (!/The Living Crown/.test(soundtrack) || !/crownforge:audio/.test(soundtrack)) {
+    fail('adaptive Living Crown score contract is missing');
+  }
+  if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(soundtrack)) {
+    fail('premium soundtrack attempted to own chess state');
+  }
+  const masterGain = Number(soundtrack.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
+  if (!Number.isFinite(masterGain) || masterGain < 0.3 || masterGain > 0.4) {
+    fail(`Living Crown master gain is outside its limiter-safe audible range: ${masterGain}`);
+  }
+  const feedback = read('src/feedback.js');
+  const cinematicDirector = read('src/cinematic-director.js');
+  if (/AudioContext|createOscillator/.test(feedback) || /AudioContext|createOscillator/.test(cinematicDirector)) {
+    fail('legacy modules still create duplicate audio contexts');
+  }
+  if (!/game\.play\(move\)[\s\S]*publishAudioEvent\(["']move["']/.test(app)) {
+    fail('audio events are not downstream of the authoritative engine transition');
+  }
+
   const worker = read('service-worker.js');
-  if (!/crownforge-v29-side-lock/.test(worker)) fail('service-worker cache is not v29');
+  if (!/crownforge-v30-living-crown/.test(worker)) fail('service-worker cache is not the Living Crown v30 shell');
   for (const asset of [
     './index.html',
-    './production-board.css?v=29',
-    './src/app-stable.js?v=29',
-    './src/board3d.js?v=29',
+    './production-board.css?v=30',
+    './src/app-stable.js?v=30',
+    './src/board3d.js?v=30',
+    './src/premium-soundtrack.js?v=30',
+    './premium-soundtrack.css?v=30',
     './src/engine-stable.js',
-    './manifest.webmanifest?v=29',
+    './manifest.webmanifest?v=30',
   ]) {
     if (!worker.includes(JSON.stringify(asset))) fail(`offline shell is missing: ${asset}`);
   }

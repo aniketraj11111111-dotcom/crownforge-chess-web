@@ -61,6 +61,59 @@ const statusNames = {
   [GameStatus.DrawSeventyFiveMoveRule]: "Draw — 75-move rule",
 };
 
+const AUDIO_EVENT_NAME = "crownforge:audio";
+const phaseIntensity = Object.freeze({
+  opening: 0.2,
+  strategy: 0.38,
+  tension: 0.64,
+  endgame: 0.76,
+  terminal: 1,
+});
+
+function sideName(side) {
+  return side === Side.White ? "white" : side === Side.Black ? "black" : null;
+}
+
+function pieceName(type) {
+  const name = PieceType[type];
+  return typeof name === "string" ? name.toLowerCase() : null;
+}
+
+function audioPhase(move = null) {
+  if (game.outcome.isTerminal) return "terminal";
+
+  const pieces = game.position.board.filter(Boolean);
+  const queens = pieces.filter((piece) => piece.type === PieceType.Queen).length;
+  const halfMoves = game.moveHistory.length;
+  if (pieces.length <= 12 || (queens === 0 && halfMoves >= 20)) return "endgame";
+  if (game.outcome.isCheck || move?.isCapture || halfMoves >= 20) return "tension";
+  return halfMoves < 12 ? "opening" : "strategy";
+}
+
+function publishAudioEvent(kind, detail = {}, move = null) {
+  const phase = audioPhase(move);
+  let intensity = phaseIntensity[phase] ?? phaseIntensity.strategy;
+  if (move?.isCapture) intensity += 0.08;
+  if (game.outcome.isCheck) intensity += 0.12;
+  if (move?.flags & MoveFlags.Promotion) intensity += 0.1;
+
+  const payload = Object.freeze({
+    version: 1,
+    kind,
+    sequence: game.moveHistory.length,
+    phase,
+    intensity: Math.min(1, intensity),
+    check: game.outcome.isCheck,
+    terminal: game.outcome.isTerminal,
+    draw: game.outcome.isDraw,
+    outcome: GameStatus[game.outcome.status]?.toLowerCase() ?? "unknown",
+    winner: sideName(game.outcome.winner),
+    ...detail,
+  });
+
+  window.dispatchEvent(new CustomEvent(AUDIO_EVENT_NAME, { detail: payload }));
+}
+
 function visualSquares() {
   const squares = [];
   for (let rank = 7; rank >= 0; rank -= 1) {
@@ -281,6 +334,10 @@ async function onSquare(square) {
   );
 
   if (!candidates.length) {
+    publishAudioEvent("illegal", {
+      from: selected.toString(),
+      to: square.toString(),
+    });
     selected = null;
     selectedMoves = [];
     render();
@@ -296,6 +353,8 @@ async function onSquare(square) {
 
   inputLocked = true;
   try {
+    const movingPiece = game.position.at(move.from);
+    if (!movingPiece) throw new Error("Engine-approved move has no source piece.");
     game.play(move);
     lastMove = move;
     claimedDrawType = null;
@@ -304,6 +363,22 @@ async function onSquare(square) {
     persistCurrentGame();
 
     render();
+    publishAudioEvent("move", {
+      piece: pieceName(movingPiece.type),
+      side: sideName(movingPiece.side),
+      from: move.from.toString(),
+      to: move.to.toString(),
+      capture: move.isCapture,
+      enPassant: Boolean(move.flags & MoveFlags.EnPassant),
+      castle: move.flags & MoveFlags.CastleKingSide
+        ? "king-side"
+        : move.flags & MoveFlags.CastleQueenSide
+          ? "queen-side"
+          : null,
+      promotion: move.flags & MoveFlags.Promotion
+        ? pieceName(move.promotion)
+        : null,
+    }, move);
     if (game.outcome.isTerminal) await showTerminal();
   } finally {
     inputLocked = false;
@@ -342,6 +417,7 @@ function restart() {
   document.body.classList.remove("cinematic");
   persistCurrentGame();
   render();
+  publishAudioEvent("restart");
 }
 
 restartBtn.addEventListener("click", restart);
@@ -358,6 +434,7 @@ claimDrawBtn.addEventListener("click", () => {
   }
   persistCurrentGame();
   render();
+  publishAudioEvent("terminal", { claim: claimedDrawType });
   void showTerminal();
 });
 
@@ -367,5 +444,6 @@ document.addEventListener("visibilitychange", () => {
 });
 
 render();
+publishAudioEvent("ready", { restored: restoredSession.restored });
 window.CROWNFORGE_READY = boardEl.children.length === 64;
 if (game.outcome.isTerminal) void showTerminal();
