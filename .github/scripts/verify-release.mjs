@@ -54,8 +54,8 @@ if (errors.length === 0) {
 
   const versions = [...index.matchAll(/[?&]v=(\d+)/g)].map((match) => match[1]);
   const uniqueVersions = new Set(versions);
-  if (uniqueVersions.size !== 1 || !uniqueVersions.has('29')) {
-    fail(`index asset versions must all be v29; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
+  if (uniqueVersions.size !== 1 || !uniqueVersions.has('30')) {
+    fail(`index asset versions must all be v30; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
   }
 
   for (const id of [
@@ -100,14 +100,14 @@ if (errors.length === 0) {
   }
 
   const worker = read('service-worker.js');
-  if (!/crownforge-v29-side-lock/.test(worker)) fail('service-worker cache is not v29');
+  if (!/crownforge-v30-premium-3d/.test(worker)) fail('service-worker cache is not v30');
   for (const asset of [
     './index.html',
-    './production-board.css?v=29',
-    './src/app-stable.js?v=29',
-    './src/board3d.js?v=29',
+    './production-board.css?v=30',
+    './src/app-stable.js?v=30',
+    './src/board3d.js?v=30',
     './src/engine-stable.js',
-    './manifest.webmanifest?v=29',
+    './manifest.webmanifest?v=30',
   ]) {
     if (!worker.includes(JSON.stringify(asset))) fail(`offline shell is missing: ${asset}`);
   }
