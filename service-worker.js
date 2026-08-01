@@ -1,22 +1,23 @@
-const CACHE = "crownforge-v17-keyboard-navigation";
+const CACHE = "crownforge-v18-promotion-focus";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=17",
-  "./last-move.css?v=17",
-  "./turn-guidance.css?v=17",
-  "./premium-phase1.css?v=17",
-  "./webgl-phase2.css?v=17",
-  "./cinematic-endgame.css?v=17",
-  "./board-geometry-lock.css?v=17",
-  "./src/app-stable.js?v=17",
-  "./src/board3d.js?v=17",
+  "./styles.css?v=18",
+  "./last-move.css?v=18",
+  "./turn-guidance.css?v=18",
+  "./premium-phase1.css?v=18",
+  "./webgl-phase2.css?v=18",
+  "./cinematic-endgame.css?v=18",
+  "./board-geometry-lock.css?v=18",
+  "./src/app-stable.js?v=18",
+  "./src/board3d.js?v=18",
   "./src/board3d-meshes.js",
   "./src/engine-stable.js",
-  "./src/feedback.js?v=17",
-  "./src/terminal-focus.js?v=17",
-  "./src/keyboard-nav.js?v=17",
-  "./manifest.webmanifest?v=17",
+  "./src/feedback.js?v=18",
+  "./src/terminal-focus.js?v=18",
+  "./src/keyboard-nav.js?v=18",
+  "./src/promotion-focus.js?v=18",
+  "./manifest.webmanifest?v=18",
   "./public/icon.svg"
 ];
 
