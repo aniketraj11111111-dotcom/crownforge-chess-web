@@ -21,6 +21,9 @@ for (const [name, pattern] of [
   ['checkmate cinematic', /function\s+playCheckmateCue\s*\(/],
   ['draw resolution', /function\s+playDrawCue\s*\(/],
   ['visibility lifecycle', /visibilitychange/],
+  ['Android retry prompt', /Tap for Sound/],
+  ['versioned mute-state recovery', /crownforge\.soundtrack\.enabled\.v2/],
+  ['trusted-gesture output prime', /function\s+primeDeviceOutput\s*\(/],
 ]) {
   if (!pattern.test(soundtrack)) fail(`soundtrack contract missing: ${name}`);
 }
@@ -135,18 +138,24 @@ class FakeAudioContext {
     this.destination = new AudioNode();
     this.starts = [];
     this.stops = [];
+    this.operations = [];
     contexts.push(this);
   }
   createGain() { return new Gain(); }
   createBuffer(channels, length) { return new Buffer(channels, length); }
-  createConvolver() { const node = new AudioNode(); node.buffer = null; return node; }
+  createConvolver() {
+    this.operations.push('create-convolver');
+    const node = new AudioNode();
+    node.buffer = null;
+    return node;
+  }
   createBiquadFilter() { return new Filter(); }
   createDynamicsCompressor() { return new Compressor(); }
   createWaveShaper() { const node = new AudioNode(); node.curve = null; node.oversample = 'none'; return node; }
   createPeriodicWave() { return {}; }
   createOscillator() { return new Oscillator(this); }
   createStereoPanner() { const node = new AudioNode(); node.pan = new Param(); return node; }
-  async resume() { this.state = 'running'; }
+  async resume() { this.operations.push('resume'); this.state = 'running'; }
   async suspend() { this.state = 'suspended'; }
   async close() { this.state = 'closed'; }
 }
@@ -181,6 +190,7 @@ const windowObject = {
   setInterval: () => ++intervalId,
   clearInterval: () => {},
   addEventListener: (type, listener) => addListener(windowListeners, type, listener),
+  navigator: { userActivation: { isActive: false } },
 };
 const documentObject = {
   visibilityState: 'visible',
@@ -200,6 +210,8 @@ const sandbox = vm.createContext({
   Set,
   console,
 });
+// A mute saved by an older preview must not silently disable this new score.
+storage.set('crownforge.soundtrack.enabled.v1', 'off');
 vm.runInContext(soundtrack, sandbox);
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
@@ -215,11 +227,17 @@ const waitForAudio = async () => { await flush(); await flush(); };
 
 assert(button.dataset.score === 'living-crown', 'runtime score identity was not exposed');
 assert(button.dataset.audioState === 'waiting', 'soundtrack must wait for user activation');
+assert(button.textContent === '♫ Tap for Sound', 'locked audio must show a truthful tap-to-unlock prompt');
+assert(button.attributes['aria-pressed'] === 'true', 'an obsolete v1 mute state leaked into the v2 score');
 emitWindow('pointerdown', { target: {} });
 await waitForAudio();
 assert(contexts.length === 1, `expected one AudioContext, got ${contexts.length}`);
 assert(button.dataset.audioState === 'playing', 'soundtrack did not start after activation');
-assert(voiceCount() === 54, `expected 54 initial adaptive voices, got ${voiceCount()}`);
+assert(button.textContent === '♫ Music On', 'running audio did not expose its real state');
+assert(voiceCount() >= 56, `expected adaptive voices plus an audible ready cue, got ${voiceCount()}`);
+const resumeIndex = contexts[0].operations.indexOf('resume');
+const graphIndex = contexts[0].operations.indexOf('create-convolver');
+assert(resumeIndex >= 0 && graphIndex > resumeIndex, 'audio graph was built before Android resume accepted the gesture');
 
 let sequence = 0;
 const move = async (overrides) => {
