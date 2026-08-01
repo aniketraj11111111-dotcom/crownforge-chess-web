@@ -6,7 +6,10 @@
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   const AUDIO_EVENT_NAME = "crownforge:audio";
-  const STORAGE_KEY = "crownforge.soundtrack.enabled.v1";
+  // v2 deliberately starts enabled instead of inheriting an old preview's muted
+  // state. The previous v1 key was shared across preview builds and could make a
+  // newly deployed soundtrack appear permanently silent on a real device.
+  const STORAGE_KEY = "crownforge.soundtrack.enabled.v2";
   const SCORE_NAME = "The Living Crown";
   const MASTER_GAIN = 0.36;
   const MUSIC_GAIN = 0.92;
@@ -52,6 +55,7 @@
   let lastMoveSequence = 0;
   let startPromise = null;
   let operation = 0;
+  let readyCuePlayed = false;
   const activeCueSources = new Set();
   const activeScoreSources = new Set();
 
@@ -80,10 +84,17 @@
     button.dataset.score = "living-crown";
     button.dataset.intensity = targetIntensity.toFixed(2);
     button.setAttribute("aria-pressed", String(musicEnabled));
-    button.textContent = musicEnabled ? "♫ Music On" : "♫ Music Off";
-    button.title = musicEnabled
-      ? `${SCORE_NAME} — adaptive Crownforge score`
-      : `Turn on ${SCORE_NAME}`;
+    if (!musicEnabled) button.textContent = "♫ Music Off";
+    else if (state === "playing") button.textContent = "♫ Music On";
+    else if (state === "starting") button.textContent = "♫ Starting Sound…";
+    else if (state === "paused") button.textContent = "♫ Sound Paused";
+    else button.textContent = "♫ Tap for Sound";
+
+    button.title = !musicEnabled
+      ? `Turn on ${SCORE_NAME}`
+      : state === "playing"
+        ? `${SCORE_NAME} — adaptive Crownforge score`
+        : `Tap once to unlock ${SCORE_NAME}`;
   }
 
   if (!AudioContextClass) {
@@ -203,6 +214,28 @@
       limiter,
       warmWave,
     };
+  }
+
+  function getOrCreateAudioContext() {
+    if (!audioContext || audioContext.state === "closed") {
+      audioContext = new AudioContextClass({ latencyHint: "interactive" });
+      graph = null;
+    }
+    return audioContext;
+  }
+
+  // Android Chrome requires resume() to happen immediately inside a trusted
+  // user gesture. This tiny inaudible pulse primes the device output before the
+  // heavier reverb graph is built, so transient activation is never lost.
+  function primeDeviceOutput(context) {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const now = context.currentTime;
+    oscillator.frequency.setValueAtTime(220, now);
+    gain.gain.setValueAtTime(MIN_GAIN, now);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.025);
   }
 
   function ramp(param, target, duration, start = audioContext.currentTime) {
@@ -469,47 +502,55 @@
 
   async function ensureAudio() {
     if (!userActivated || document.visibilityState === "hidden") return;
-    if (audioContext?.state === "running") {
+    if (audioContext?.state === "running" && graph) {
       if (musicEnabled) startScore();
-      return;
+      return true;
     }
     if (startPromise) return startPromise;
 
     const operationId = ++operation;
     const pendingStart = (async () => {
-      let candidateContext = audioContext;
-      let candidateGraph = graph;
       try {
-        if (!candidateContext || candidateContext.state === "closed") {
-          candidateContext = new AudioContextClass({ latencyHint: "interactive" });
-          candidateGraph = createAudioGraph(candidateContext);
-        }
-        await candidateContext.resume();
+        const candidateContext = getOrCreateAudioContext();
+        renderButton(musicEnabled ? "starting" : "off");
+        if (candidateContext.state !== "running") await candidateContext.resume();
         if (operationId !== operation) {
-          await candidateContext.close();
-          return;
+          return false;
+        }
+        if (candidateContext.state !== "running") {
+          renderButton(musicEnabled ? "blocked" : "off");
+          return false;
         }
 
-        audioContext = candidateContext;
-        graph = candidateGraph;
+        // Build the expensive convolution graph only after Android has accepted
+        // the user-gesture resume request.
+        if (!graph) graph = createAudioGraph(candidateContext);
         applyIntensity(targetIntensity, 0.08);
         if (document.visibilityState === "hidden") {
           await audioContext.suspend();
           renderButton(musicEnabled ? "paused" : "off");
-          return;
+          return false;
         }
-        if (musicEnabled) startScore();
+        if (musicEnabled) {
+          if (!readyCuePlayed) {
+            playAudioReadyCue(audioContext.currentTime + 0.018);
+            readyCuePlayed = true;
+          }
+          startScore();
+        }
         else renderButton("off");
+        return true;
       } catch {
         if (operationId !== operation) return;
-        audioContext = null;
         graph = null;
         scoreRunning = false;
         window.clearInterval(schedulerId);
         schedulerId = 0;
-        button.disabled = true;
-        button.textContent = "Music Unavailable";
-        button.dataset.audioState = "unavailable";
+        // A blocked resume is recoverable. Keep the button and future gesture
+        // listeners alive so the user can retry instead of getting permanent
+        // silence after one Android autoplay rejection.
+        renderButton(musicEnabled ? "blocked" : "off");
+        return false;
       }
     })();
 
@@ -552,6 +593,23 @@
         filterFrequency: 2200,
         ...options,
       });
+    });
+  }
+
+  function playAudioReadyCue(start) {
+    cueTone(659.26, start, 0.56, 0.105, {
+      type: "sine",
+      attack: 0.018,
+      release: 0.43,
+      filterFrequency: 4200,
+      pan: -0.08,
+    });
+    cueTone(880, start + 0.095, 0.78, 0.09, {
+      type: "sine",
+      attack: 0.02,
+      release: 0.64,
+      filterFrequency: 4600,
+      pan: 0.08,
     });
   }
 
@@ -886,6 +944,7 @@
       return;
     }
 
+    if (!userActivated && window.navigator?.userActivation?.isActive) userActivated = true;
     if (!userActivated) return;
     void ensureAudio().then(() => {
       if (!audioContext || !graph) return;
@@ -916,8 +975,23 @@
   }
 
   function unlock() {
+    if (audioContext?.state === "running" && graph) return;
     userActivated = true;
-    void ensureAudio();
+    if (document.visibilityState === "hidden") return;
+
+    try {
+      const context = getOrCreateAudioContext();
+      renderButton(musicEnabled ? "starting" : "off");
+      primeDeviceOutput(context);
+      // Calling resume synchronously here is the critical Android unlock. The
+      // promise continuation may safely finish graph setup afterward.
+      const resumePromise = context.state === "running" ? Promise.resolve() : context.resume();
+      void resumePromise
+        .then(() => ensureAudio())
+        .catch(() => renderButton(musicEnabled ? "blocked" : "off"));
+    } catch {
+      renderButton(musicEnabled ? "blocked" : "off");
+    }
   }
 
   function closeAudio() {
@@ -931,6 +1005,7 @@
     const closingContext = audioContext;
     audioContext = null;
     graph = null;
+    readyCuePlayed = false;
     if (closingContext && closingContext.state !== "closed") {
       closingContext.close().catch(() => {});
     }
@@ -938,6 +1013,14 @@
 
   button.addEventListener("click", () => {
     userActivated = true;
+
+    // While audio is still locked, this control is an explicit retry action,
+    // not an accidental request to mute the soundtrack.
+    if (musicEnabled && (!audioContext || audioContext.state !== "running" || !graph)) {
+      unlock();
+      return;
+    }
+
     musicEnabled = !musicEnabled;
     savePreference();
     if (!musicEnabled) {
@@ -945,11 +1028,17 @@
       return;
     }
     renderButton("starting");
-    void ensureAudio().then(startScore);
+    unlock();
+    void ensureAudio().then((started) => {
+      if (started) startScore();
+    });
   });
 
-  window.addEventListener("pointerdown", unlock, { once: true, capture: true, passive: true });
-  window.addEventListener("keydown", unlock, { once: true, capture: true });
+  // Do not make these one-shot: if Android rejects the first resume attempt,
+  // every later trusted gesture remains a safe recovery opportunity.
+  window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
+  window.addEventListener("touchend", unlock, { capture: true, passive: true });
+  window.addEventListener("keydown", unlock, { capture: true });
   window.addEventListener(AUDIO_EVENT_NAME, handleAudioEvent);
 
   document.addEventListener("visibilitychange", () => {
