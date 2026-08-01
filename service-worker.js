@@ -1,4 +1,4 @@
-const CACHE = "crownforge-v30-premium-3d";
+const CACHE = "crownforge-v30-premium-3d-soundtrack";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const APP_SHELL = [
   "./offline-status.css?v=30",
   "./install-control.css?v=30",
   "./fullscreen-control.css?v=30",
+  "./premium-soundtrack.css?v=30",
   "./src/app-stable.js?v=30",
   "./src/session-state.js",
   "./src/board3d.js?v=30",
@@ -30,6 +31,7 @@ const APP_SHELL = [
   "./src/fullscreen-control.js?v=30",
   "./src/install-control.js?v=30",
   "./src/cinematic-director.js?v=30",
+  "./src/premium-soundtrack.js?v=30",
   "./manifest.webmanifest?v=30",
   "./public/icon.svg"
 ];
