@@ -17,6 +17,131 @@
   <link rel="stylesheet" href="./offline-status.css?v=27">
   <link rel="stylesheet" href="./install-control.css?v=27">
   <link rel="stylesheet" href="./fullscreen-control.css?v=27">
+  <style>
+    /*
+     * Tablet stability gate.
+     * Touch devices use the verified DOM board as the sole visual/input layer.
+     * This prevents a WebGL canvas and the immutable grid from drifting apart
+     * during browser chrome changes, fullscreen transitions or touch scrolling.
+     */
+    html.touch-stable #board-3d {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+
+    html.touch-stable .board .piece,
+    html.touch-stable.webgl-3d-ready .board .piece,
+    html.touch-stable .webgl-3d-ready .board .piece {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
+    html.touch-stable .board .square.light {
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.16), transparent 34%),
+        repeating-linear-gradient(8deg, rgba(111,73,39,.035) 0 1px, transparent 1px 6px),
+        linear-gradient(145deg, #ead49f, #c9a76c 72%, #b88d57) !important;
+    }
+
+    html.touch-stable .board .square.dark {
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.07), transparent 34%),
+        repeating-linear-gradient(8deg, rgba(255,221,160,.025) 0 1px, transparent 1px 6px),
+        linear-gradient(145deg, #75472e, #4a281a 70%, #321a12) !important;
+    }
+
+    html.touch-stable,
+    html.touch-stable body,
+    html.touch-stable .app-shell,
+    html.touch-stable .game-layout,
+    html.touch-stable .board-stage,
+    html.touch-stable .board {
+      overscroll-behavior: none !important;
+    }
+
+    html.touch-stable .board-stage,
+    html.touch-stable .board,
+    html.touch-stable .square {
+      touch-action: none !important;
+      transform: none !important;
+      transition: none !important;
+      animation: none !important;
+    }
+
+    html.touch-stable .board-stage {
+      position: relative !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      align-self: start !important;
+      overflow: hidden !important;
+    }
+
+    @media (pointer: coarse) and (orientation: landscape) {
+      .app-shell {
+        width: 100% !important;
+        max-width: none !important;
+        padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+      }
+
+      .game-layout {
+        grid-template-columns: minmax(0, min(70vw, calc(100dvh - 28px))) minmax(230px, 1fr) !important;
+        gap: 16px !important;
+        align-items: start !important;
+      }
+
+      .board-stage {
+        width: min(70vw, calc(100dvh - 28px)) !important;
+        max-width: 100% !important;
+        padding: 10px !important;
+      }
+
+      aside {
+        min-width: 0 !important;
+      }
+    }
+
+    @media (pointer: coarse) and (orientation: portrait) {
+      .game-layout {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+
+      .board-stage {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+    }
+  </style>
+  <script>
+    (() => {
+      const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
+      const touchDevice = coarsePointer || (navigator.maxTouchPoints || 0) > 0;
+      if (!touchDevice) return;
+
+      document.documentElement.classList.add("touch-stable", "webgl-3d-unavailable");
+      document.documentElement.classList.remove("webgl-3d-ready");
+      window.CROWNFORGE_DISABLE_WEBGL = true;
+
+      const preserveFallback = () => {
+        document.documentElement.classList.add("touch-stable", "webgl-3d-unavailable");
+        document.documentElement.classList.remove("webgl-3d-ready");
+        const canvas = document.querySelector("#board-3d");
+        if (canvas) {
+          canvas.dataset.ready = "false";
+          canvas.dataset.aligned = "false";
+          canvas.dataset.fallbackReason = "touch-stability-gate";
+        }
+      };
+
+      window.addEventListener("pageshow", preserveFallback, { passive: true });
+      window.addEventListener("orientationchange", preserveFallback, { passive: true });
+      document.addEventListener("fullscreenchange", preserveFallback, { passive: true });
+      new MutationObserver(preserveFallback).observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    })();
+  </script>
 </head>
 <body>
   <main class="app-shell">
