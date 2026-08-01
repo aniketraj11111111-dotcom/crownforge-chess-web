@@ -56,6 +56,7 @@
   let startPromise = null;
   let operation = 0;
   let readyCuePlayed = false;
+  let buttonUnlockGesture = false;
   const activeCueSources = new Set();
   const activeScoreSources = new Set();
 
@@ -974,7 +975,18 @@
     });
   }
 
-  function unlock() {
+  function unlock(event) {
+    const target = event?.target;
+    if (
+      musicEnabled &&
+      button.dataset.audioState !== "playing" &&
+      (target === button || (typeof button.contains === "function" && button.contains(target)))
+    ) {
+      // The click that follows this pointer/key gesture belongs to the unlock
+      // action. It must not immediately toggle the freshly started score off.
+      buttonUnlockGesture = true;
+    }
+
     if (audioContext?.state === "running" && graph) return;
     userActivated = true;
     if (document.visibilityState === "hidden") return;
@@ -1016,10 +1028,17 @@
 
     // While audio is still locked, this control is an explicit retry action,
     // not an accidental request to mute the soundtrack.
-    if (musicEnabled && (!audioContext || audioContext.state !== "running" || !graph)) {
+    if (
+      musicEnabled &&
+      (buttonUnlockGesture || !audioContext || audioContext.state !== "running" || !graph)
+    ) {
+      buttonUnlockGesture = false;
       unlock();
+      void ensureAudio();
       return;
     }
+
+    buttonUnlockGesture = false;
 
     musicEnabled = !musicEnabled;
     savePreference();
