@@ -21,6 +21,7 @@ const required = [
   'offline-status.css',
   'install-control.css',
   'fullscreen-control.css',
+  'premium-soundtrack.css',
   'cinematic-endgame.css',
   'last-move.css',
   'turn-guidance.css',
@@ -34,6 +35,7 @@ const required = [
   'src/fullscreen-control.js',
   'src/install-control.js',
   'src/connectivity-status.js',
+  'src/premium-soundtrack.js',
   'public/icon.svg',
 ];
 
@@ -61,7 +63,7 @@ if (errors.length === 0) {
   for (const id of [
     'board', 'board-3d', 'status', 'substatus', 'history', 'restart',
     'claim-draw', 'promotion-dialog', 'victory', 'rematch',
-    'connection-status', 'fullscreen-app', 'install-app',
+    'connection-status', 'soundtrack-toggle', 'fullscreen-app', 'install-app',
   ]) {
     if (!new RegExp(`id=["']${id}["']`).test(index)) fail(`required UI id is missing: ${id}`);
   }
@@ -99,6 +101,14 @@ if (errors.length === 0) {
     fail('presentation renderer attempted to own chess state');
   }
 
+  const soundtrack = read('src/premium-soundtrack.js');
+  if (!/createDynamicsCompressor\s*\(/.test(soundtrack) || !/createConvolver\s*\(/.test(soundtrack)) {
+    fail('premium soundtrack mastering graph is incomplete');
+  }
+  if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(soundtrack)) {
+    fail('premium soundtrack attempted to own chess state');
+  }
+
   const worker = read('service-worker.js');
   if (!/crownforge-v30-premium-3d/.test(worker)) fail('service-worker cache is not v30');
   for (const asset of [
@@ -106,6 +116,8 @@ if (errors.length === 0) {
     './production-board.css?v=30',
     './src/app-stable.js?v=30',
     './src/board3d.js?v=30',
+    './src/premium-soundtrack.js?v=30',
+    './premium-soundtrack.css?v=30',
     './src/engine-stable.js',
     './manifest.webmanifest?v=30',
   ]) {
