@@ -19,6 +19,8 @@ for (const file of [
   'src/keyboard-nav.js',
   'src/promotion-focus.js',
   'src/board-semantics.js',
+  'src/touch-feedback.js',
+  'touch-feedback.css',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -117,6 +119,19 @@ for (const contract of [
 ]) {
   if (!contract[1].test(boardSemantics)) {
     fail(`board semantics contract missing: ${contract[0]}`);
+  }
+}
+
+const touchFeedback = read('src/touch-feedback.js');
+for (const contract of [
+  ['primary pointer guard', /event\.isPrimary/],
+  ['square-only targeting', /button\[data-square\]/],
+  ['drag cancellation threshold', /DRAG_CANCEL_DISTANCE/],
+  ['pointer cancellation cleanup', /pointercancel/],
+  ['visibility cleanup', /visibilitychange/],
+]) {
+  if (!contract[1].test(touchFeedback)) {
+    fail(`touch feedback contract missing: ${contract[0]}`);
   }
 }
 
