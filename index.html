@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0b0908">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=18">
-  <link rel="stylesheet" href="./styles.css?v=18">
-  <link rel="stylesheet" href="./last-move.css?v=18">
-  <link rel="stylesheet" href="./turn-guidance.css?v=18">
-  <link rel="stylesheet" href="./premium-phase1.css?v=18">
-  <link rel="stylesheet" href="./webgl-phase2.css?v=18">
-  <link rel="stylesheet" href="./cinematic-endgame.css?v=18">
-  <link rel="stylesheet" href="./board-geometry-lock.css?v=18">
+  <link rel="manifest" href="./manifest.webmanifest?v=19">
+  <link rel="stylesheet" href="./styles.css?v=19">
+  <link rel="stylesheet" href="./last-move.css?v=19">
+  <link rel="stylesheet" href="./turn-guidance.css?v=19">
+  <link rel="stylesheet" href="./premium-phase1.css?v=19">
+  <link rel="stylesheet" href="./webgl-phase2.css?v=19">
+  <link rel="stylesheet" href="./cinematic-endgame.css?v=19">
+  <link rel="stylesheet" href="./board-geometry-lock.css?v=19">
 </head>
 <body>
   <main class="app-shell">
@@ -65,7 +65,7 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=18").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js?v=19").catch(() => {});
       });
     }
 
@@ -85,11 +85,12 @@
       }
     }, 5000);
   </script>
-  <script src="./src/feedback.js?v=18" defer></script>
-  <script src="./src/terminal-focus.js?v=18" defer></script>
-  <script src="./src/keyboard-nav.js?v=18" defer></script>
-  <script src="./src/promotion-focus.js?v=18" defer></script>
-  <script type="module" src="./src/board3d.js?v=18"></script>
-  <script type="module" src="./src/app-stable.js?v=18"></script>
+  <script src="./src/feedback.js?v=19" defer></script>
+  <script src="./src/terminal-focus.js?v=19" defer></script>
+  <script src="./src/keyboard-nav.js?v=19" defer></script>
+  <script src="./src/promotion-focus.js?v=19" defer></script>
+  <script src="./src/board-semantics.js?v=19" defer></script>
+  <script type="module" src="./src/board3d.js?v=19"></script>
+  <script type="module" src="./src/app-stable.js?v=19"></script>
 </body>
 </html>
