@@ -1,0 +1,139 @@
+/* Crownforge production board geometry v28
+ * One immutable square board. The DOM grid is the input/accessibility layer;
+ * the WebGL canvas is the visual layer. Both always share the same box.
+ */
+html,
+body {
+  overscroll-behavior: none !important;
+}
+
+.game-layout {
+  align-items: start !important;
+}
+
+.board-stage {
+  position: relative !important;
+  display: block !important;
+  inline-size: 100% !important;
+  max-inline-size: 100% !important;
+  min-inline-size: 0 !important;
+  padding: clamp(10px, 1.35vw, 16px) !important;
+  overflow: hidden !important;
+  contain: layout paint style !important;
+  touch-action: none !important;
+  overscroll-behavior: contain !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+.board,
+.board[data-geometry-locked="true"] {
+  position: relative !important;
+  inset: auto !important;
+  inline-size: 100% !important;
+  block-size: auto !important;
+  min-inline-size: 0 !important;
+  max-inline-size: 100% !important;
+  min-block-size: 0 !important;
+  max-block-size: none !important;
+  aspect-ratio: 1 / 1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(8, minmax(0, 1fr)) !important;
+  grid-auto-columns: 0 !important;
+  grid-auto-rows: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  contain: layout paint style !important;
+  touch-action: none !important;
+  transform: none !important;
+  transform-origin: center !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+.square {
+  inline-size: auto !important;
+  block-size: auto !important;
+  min-inline-size: 0 !important;
+  min-block-size: 0 !important;
+  max-inline-size: none !important;
+  max-block-size: none !important;
+  aspect-ratio: auto !important;
+  overflow: hidden !important;
+  touch-action: manipulation !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+#board-3d {
+  position: absolute !important;
+  pointer-events: none !important;
+  touch-action: none !important;
+  transform: none !important;
+  transform-origin: center !important;
+  transition: opacity 120ms ease, filter 420ms ease !important;
+}
+
+.board-stage,
+.board-stage::before,
+.board-stage::after,
+.board,
+#board-3d {
+  will-change: auto !important;
+}
+
+@media (pointer: coarse) {
+  .app-shell {
+    max-inline-size: 1440px !important;
+  }
+
+  .board-stage,
+  .board,
+  .square {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  .app-shell {
+    inline-size: 100% !important;
+    max-inline-size: none !important;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+  }
+
+  .game-layout {
+    grid-template-columns: minmax(0, min(72vw, 92dvh)) minmax(260px, 1fr) !important;
+    gap: clamp(12px, 1.5vw, 20px) !important;
+  }
+
+  .board-stage {
+    inline-size: min(72vw, 92dvh) !important;
+    max-inline-size: 100% !important;
+  }
+
+  aside {
+    min-inline-size: 0 !important;
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait), (max-width: 820px) {
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .board-stage {
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #board-3d {
+    transition: none !important;
+  }
+}
