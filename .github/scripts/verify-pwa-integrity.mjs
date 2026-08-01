@@ -18,6 +18,7 @@ for (const file of [
   'src/engine-stable.js',
   'src/keyboard-nav.js',
   'src/promotion-focus.js',
+  'src/board-semantics.js',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -103,6 +104,19 @@ for (const contract of [
 ]) {
   if (!contract[1].test(promotionFocus)) {
     fail(`promotion focus contract missing: ${contract[0]}`);
+  }
+}
+
+const boardSemantics = read('src/board-semantics.js');
+for (const contract of [
+  ['selected-square semantics', /setAttribute\(["']aria-selected["']/],
+  ['legal move announcement', /legal move destination/],
+  ['legal capture announcement', /legal capture destination/],
+  ['fixed 64-square guard', /cells\.length\s*!==\s*64/],
+  ['presentation-only observer', /new\s+MutationObserver\s*\(/],
+]) {
+  if (!contract[1].test(boardSemantics)) {
+    fail(`board semantics contract missing: ${contract[0]}`);
   }
 }
 
