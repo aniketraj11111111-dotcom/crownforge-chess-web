@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0b0908">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=23">
-  <link rel="stylesheet" href="./styles.css?v=23">
-  <link rel="stylesheet" href="./last-move.css?v=23">
-  <link rel="stylesheet" href="./turn-guidance.css?v=23">
-  <link rel="stylesheet" href="./premium-phase1.css?v=23">
-  <link rel="stylesheet" href="./webgl-phase2.css?v=23">
-  <link rel="stylesheet" href="./cinematic-endgame.css?v=23">
-  <link rel="stylesheet" href="./board-geometry-lock.css?v=23">
-  <link rel="stylesheet" href="./touch-feedback.css?v=23">
-  <link rel="stylesheet" href="./offline-status.css?v=23">
-  <link rel="stylesheet" href="./install-control.css?v=23">
+  <link rel="manifest" href="./manifest.webmanifest?v=24">
+  <link rel="stylesheet" href="./styles.css?v=24">
+  <link rel="stylesheet" href="./last-move.css?v=24">
+  <link rel="stylesheet" href="./turn-guidance.css?v=24">
+  <link rel="stylesheet" href="./premium-phase1.css?v=24">
+  <link rel="stylesheet" href="./webgl-phase2.css?v=24">
+  <link rel="stylesheet" href="./cinematic-endgame.css?v=24">
+  <link rel="stylesheet" href="./board-geometry-lock.css?v=24">
+  <link rel="stylesheet" href="./touch-feedback.css?v=24">
+  <link rel="stylesheet" href="./offline-status.css?v=24">
+  <link rel="stylesheet" href="./install-control.css?v=24">
+  <link rel="stylesheet" href="./fullscreen-control.css?v=24">
 </head>
 <body>
   <main class="app-shell">
@@ -29,6 +30,7 @@
     </section>
     <div class="pwa-status-row">
       <span id="connection-status" class="connection-status" role="status" aria-live="polite" data-connection="preparing">Preparing offline play</span>
+      <button id="fullscreen-app" class="fullscreen-app" type="button" aria-pressed="false" hidden>Fullscreen</button>
       <button id="install-app" class="install-app" type="button" hidden>Install App</button>
     </div>
     <section class="game-layout">
@@ -72,7 +74,7 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=23").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js?v=24").catch(() => {});
       });
     }
 
@@ -92,16 +94,17 @@
       }
     }, 5000);
   </script>
-  <script src="./src/feedback.js?v=23" defer></script>
-  <script src="./src/terminal-focus.js?v=23" defer></script>
-  <script src="./src/keyboard-nav.js?v=23" defer></script>
-  <script src="./src/promotion-focus.js?v=23" defer></script>
-  <script src="./src/board-semantics.js?v=23" defer></script>
-  <script src="./src/touch-feedback.js?v=23" defer></script>
-  <script src="./src/screen-wake.js?v=23" defer></script>
-  <script src="./src/connectivity-status.js?v=23" defer></script>
-  <script src="./src/install-control.js?v=23" defer></script>
-  <script type="module" src="./src/board3d.js?v=23"></script>
-  <script type="module" src="./src/app-stable.js?v=23"></script>
+  <script src="./src/feedback.js?v=24" defer></script>
+  <script src="./src/terminal-focus.js?v=24" defer></script>
+  <script src="./src/keyboard-nav.js?v=24" defer></script>
+  <script src="./src/promotion-focus.js?v=24" defer></script>
+  <script src="./src/board-semantics.js?v=24" defer></script>
+  <script src="./src/touch-feedback.js?v=24" defer></script>
+  <script src="./src/screen-wake.js?v=24" defer></script>
+  <script src="./src/connectivity-status.js?v=24" defer></script>
+  <script src="./src/fullscreen-control.js?v=24" defer></script>
+  <script src="./src/install-control.js?v=24" defer></script>
+  <script type="module" src="./src/board3d.js?v=24"></script>
+  <script type="module" src="./src/app-stable.js?v=24"></script>
 </body>
 </html>
