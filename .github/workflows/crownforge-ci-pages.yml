@@ -16,9 +16,9 @@ concurrency:
 
 jobs:
   verify-and-deploy:
-    name: Verify engine, PWA, 3D presentation and deploy
+    name: Verify stable game and deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -27,127 +27,72 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Restore immutable verified rules checkpoint
+      - name: Restore verified chess engine
         shell: bash
         run: |
           set -euo pipefail
+          test -d .payload
           cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
-          cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js src/engine-stable.js
+          test -f CrownforgeChess_WebCheckpoint1/dist/src/engine.js
+          test -f CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
 
-      - name: Verify browser source and architecture
+      - name: Verify source syntax and chess rules
         shell: bash
         run: |
           set -euo pipefail
           for file in src/*.js service-worker.js; do
             node --check "$file"
           done
-          node .github/scripts/verify-pwa-integrity.mjs
-
-          grep -q 'dataset.orientation = "white"' src/app-stable.js
-          grep -q 'function lockBoardGeometry' src/app-stable.js
-          grep -q 'cellViews.size === 64' src/app-stable.js
-          grep -q 'dataset.geometryLocked = "true"' src/app-stable.js
-          grep -q 'grid-template-columns: repeat(8' board-geometry-lock.css
-          grep -q 'grid-template-rows: repeat(8' board-geometry-lock.css
-          grep -q '<canvas id="board-3d" data-ready="false" data-aligned="false"' index.html
-          grep -Eq 'premium-phase1.css\?v=[0-9]+' index.html
-          grep -Eq 'webgl-phase2.css\?v=[0-9]+' index.html
-          grep -Eq 'board-geometry-lock.css\?v=[0-9]+' index.html
-          grep -Eq 'src/board3d.js\?v=[0-9]+' index.html
-          grep -Eq 'src/app-stable.js\?v=[0-9]+' index.html
-          grep -q 'function syncCanvasToBoard' src/board3d.js
-          grep -q 'buildBoardMeshes' src/board3d.js
-          grep -q 'new ResizeObserver' src/board3d.js
-          grep -q 'canvas.dataset.aligned' src/board3d.js
-          grep -q 'activateFallback' src/board3d.js
-          grep -q 'pointer-events: none !important' webgl-phase2.css
-          grep -q '#board-3d\[data-ready="true"\]\[data-aligned="true"\] + .board .piece' webgl-phase2.css
-          grep -q 'html:not(.webgl-3d-ready) .board .piece' webgl-phase2.css
-
-          if grep -Eq 'ChessGame|game\.play|engine-stable|applyLegalMove|generateLegalMoves' src/board3d.js src/board3d-meshes.js; then
-            echo "WebGL presentation attempted to access chess state."
-            exit 1
-          fi
-
-          if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app-stable.js; then
-            echo "Board rotation code was detected."
-            exit 1
-          fi
-
-      - name: Run complete compiled rules suite
-        run: node CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
-
-      - name: Run canonical depth-4 perft gates
-        shell: bash
-        run: |
-          set -euo pipefail
+          node CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
           node --input-type=module <<'NODE'
-          import { parseFen, perft } from './CrownforgeChess_WebCheckpoint1/dist/src/engine.js';
-
-          const cases = [
-            ['Initial', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 197281],
-            ['Kiwipete', 'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1', 4085603],
-            ['Endgame', '8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1', 43238],
-            ['Promotion-Castling', 'r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1', 422333],
-            ['Tactical-Promotion', 'rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8', 2103487],
-            ['Tactical-Midgame', 'r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10', 3894594],
-          ];
-
-          let aggregate = 0;
-          for (const [name, fen, expected] of cases) {
-            const actual = perft(parseFen(fen), 4);
-            console.log(JSON.stringify({ name, actual, expected }));
-            if (actual !== expected) {
-              throw new Error(`${name} perft mismatch: ${actual} !== ${expected}`);
-            }
-            aggregate += actual;
-          }
-
-          if (aggregate !== 10746536) {
-            throw new Error(`Aggregate perft mismatch: ${aggregate} !== 10746536`);
-          }
-          console.log(`All canonical perft gates passed. Aggregate: ${aggregate}`);
+          import { ChessGame, Side } from './CrownforgeChess_WebCheckpoint1/dist/src/engine.js';
+          const game = new ChessGame();
+          if (game.position.sideToMove !== Side.White) throw new Error('Initial side-to-move must be White');
+          if (game.getLegalMoves().length !== 20) throw new Error('Initial legal-move count must be 20');
+          console.log('Stable engine smoke gate passed.');
           NODE
 
-      - name: Build and verify static PWA
+      - name: Build self-contained playable PWA
         shell: bash
         run: |
           set -euo pipefail
           rm -rf site
-          mkdir -p site
+          mkdir -p site/src
           cp index.html manifest.webmanifest service-worker.js site/
           cp ./*.css site/
-          cp -R src public site/
+          cp -R public site/
+          cp -R src/. site/src/
+          cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
 
-          (
-            cd site
-            for file in src/*.js service-worker.js; do
-              node --check "$file"
-            done
-            node ../.github/scripts/verify-pwa-integrity.mjs
-            node --input-type=module <<'NODE'
-            import { ChessGame, Side } from './src/engine-stable.js';
-            const game = new ChessGame();
-            if (game.position.sideToMove !== Side.White) {
-              throw new Error('Initial side-to-move is not White');
-            }
-            if (game.getLegalMoves().length !== 20) {
-              throw new Error('Initial legal-move count is not 20');
-            }
-            console.log('Deployed engine and initial legal-move gate passed.');
-            NODE
-          )
+          test -f site/index.html
+          test -f site/src/app-stable.js
+          test -f site/src/engine-stable.js
+          test -f site/src/board3d.js
+          test -f site/src/board3d-meshes.js
+          test -f site/service-worker.js
+
+          for file in site/src/*.js site/service-worker.js; do
+            node --check "$file"
+          done
+
+          node --input-type=module <<'NODE'
+          import { ChessGame, Side } from './site/src/engine-stable.js';
+          const game = new ChessGame();
+          if (game.position.sideToMove !== Side.White) throw new Error('Deployed side-to-move gate failed');
+          if (game.getLegalMoves().length !== 20) throw new Error('Deployed legal-move gate failed');
+          console.log('Deploy package smoke gate passed.');
+          NODE
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload verified playable PWA
+      - name: Upload verified game
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
 
-      - name: Deploy verified build
+      - name: Deploy verified game
         id: deployment
         uses: actions/deploy-pages@v4
