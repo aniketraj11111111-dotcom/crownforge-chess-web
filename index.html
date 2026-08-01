@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0b0908">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=19">
-  <link rel="stylesheet" href="./styles.css?v=19">
-  <link rel="stylesheet" href="./last-move.css?v=19">
-  <link rel="stylesheet" href="./turn-guidance.css?v=19">
-  <link rel="stylesheet" href="./premium-phase1.css?v=19">
-  <link rel="stylesheet" href="./webgl-phase2.css?v=19">
-  <link rel="stylesheet" href="./cinematic-endgame.css?v=19">
-  <link rel="stylesheet" href="./board-geometry-lock.css?v=19">
+  <link rel="manifest" href="./manifest.webmanifest?v=20">
+  <link rel="stylesheet" href="./styles.css?v=20">
+  <link rel="stylesheet" href="./last-move.css?v=20">
+  <link rel="stylesheet" href="./turn-guidance.css?v=20">
+  <link rel="stylesheet" href="./premium-phase1.css?v=20">
+  <link rel="stylesheet" href="./webgl-phase2.css?v=20">
+  <link rel="stylesheet" href="./cinematic-endgame.css?v=20">
+  <link rel="stylesheet" href="./board-geometry-lock.css?v=20">
+  <link rel="stylesheet" href="./touch-feedback.css?v=20">
 </head>
 <body>
   <main class="app-shell">
@@ -65,7 +66,7 @@
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=19").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js?v=20").catch(() => {});
       });
     }
 
@@ -85,12 +86,13 @@
       }
     }, 5000);
   </script>
-  <script src="./src/feedback.js?v=19" defer></script>
-  <script src="./src/terminal-focus.js?v=19" defer></script>
-  <script src="./src/keyboard-nav.js?v=19" defer></script>
-  <script src="./src/promotion-focus.js?v=19" defer></script>
-  <script src="./src/board-semantics.js?v=19" defer></script>
-  <script type="module" src="./src/board3d.js?v=19"></script>
-  <script type="module" src="./src/app-stable.js?v=19"></script>
+  <script src="./src/feedback.js?v=20" defer></script>
+  <script src="./src/terminal-focus.js?v=20" defer></script>
+  <script src="./src/keyboard-nav.js?v=20" defer></script>
+  <script src="./src/promotion-focus.js?v=20" defer></script>
+  <script src="./src/board-semantics.js?v=20" defer></script>
+  <script src="./src/touch-feedback.js?v=20" defer></script>
+  <script type="module" src="./src/board3d.js?v=20"></script>
+  <script type="module" src="./src/app-stable.js?v=20"></script>
 </body>
 </html>
