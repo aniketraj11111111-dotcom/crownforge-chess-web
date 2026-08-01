@@ -229,10 +229,13 @@ assert(button.dataset.score === 'living-crown', 'runtime score identity was not 
 assert(button.dataset.audioState === 'waiting', 'soundtrack must wait for user activation');
 assert(button.textContent === '♫ Tap for Sound', 'locked audio must show a truthful tap-to-unlock prompt');
 assert(button.attributes['aria-pressed'] === 'true', 'an obsolete v1 mute state leaked into the v2 score');
-emitWindow('pointerdown', { target: {} });
+emitWindow('pointerdown', { target: button });
+await waitForAudio();
+button.click();
 await waitForAudio();
 assert(contexts.length === 1, `expected one AudioContext, got ${contexts.length}`);
 assert(button.dataset.audioState === 'playing', 'soundtrack did not start after activation');
+assert(button.attributes['aria-pressed'] === 'true', 'first unlock tap immediately toggled music off');
 assert(button.textContent === '♫ Music On', 'running audio did not expose its real state');
 assert(voiceCount() >= 56, `expected adaptive voices plus an audible ready cue, got ${voiceCount()}`);
 const resumeIndex = contexts[0].operations.indexOf('resume');
