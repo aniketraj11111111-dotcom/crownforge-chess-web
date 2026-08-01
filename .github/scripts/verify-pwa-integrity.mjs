@@ -21,6 +21,7 @@ for (const file of [
   'src/board-semantics.js',
   'src/touch-feedback.js',
   'touch-feedback.css',
+  'src/screen-wake.js',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -132,6 +133,20 @@ for (const contract of [
 ]) {
   if (!contract[1].test(touchFeedback)) {
     fail(`touch feedback contract missing: ${contract[0]}`);
+  }
+}
+
+const screenWake = read('src/screen-wake.js');
+for (const contract of [
+  ['feature detection', /["']wakeLock["']\s+in\s+navigator/],
+  ['screen wake request', /navigator\.wakeLock\.request\(["']screen["']\)/],
+  ['user activation gate', /userActivated/],
+  ['visibility lifecycle', /visibilitychange/],
+  ['terminal release', /dataset\.turn\s*!==\s*["']terminal["']/],
+  ['pagehide cleanup', /pagehide/],
+]) {
+  if (!contract[1].test(screenWake)) {
+    fail(`screen wake contract missing: ${contract[0]}`);
   }
 }
 
