@@ -16,6 +16,7 @@ for (const file of [
   'service-worker.js',
   'src/app-stable.js',
   'src/engine-stable.js',
+  'src/keyboard-nav.js',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -77,6 +78,18 @@ for (const contract of [
   ['legal-move source', /getLegalMoves\s*\(/],
 ]) {
   if (!contract[1].test(app)) fail(`app contract missing: ${contract[0]}`);
+}
+
+const keyboardNavigation = read('src/keyboard-nav.js');
+for (const contract of [
+  ['roving tab index', /tabIndex\s*=\s*cellIndex\s*===\s*nextIndex\s*\?\s*0\s*:\s*-1/],
+  ['arrow-key navigation', /case\s+["']Arrow(?:Left|Right|Up|Down)["']/],
+  ['grid semantics', /setAttribute\(["']role["'],\s*["']grid["']\)/],
+  ['fixed 64-square guard', /cells\.length\s*!==\s*64/],
+]) {
+  if (!contract[1].test(keyboardNavigation)) {
+    fail(`keyboard navigation contract missing: ${contract[0]}`);
+  }
 }
 
 if (!process.exitCode) {
