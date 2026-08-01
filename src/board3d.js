@@ -8,7 +8,7 @@ import {
   rotateY,
   boardProjection,
   normal3,
-} from "./board3d-meshes.js";
+} from "./board3d-meshes.js?v=30";
 
 const canvas = document.querySelector("#board-3d");
 const board = document.querySelector("#board");
