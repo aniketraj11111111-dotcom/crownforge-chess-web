@@ -8,6 +8,12 @@ import {
   Square,
   pieceGlyph,
 } from "./engine-stable.js";
+import {
+  CLAIMED_DRAW,
+  clearSession,
+  loadSession,
+  saveSession,
+} from "./session-state.js";
 
 const boardEl = document.querySelector("#board");
 const statusEl = document.querySelector("#status");
@@ -30,12 +36,16 @@ if (!boardEl || !statusEl || !substatusEl || !historyEl || !restartBtn ||
 statusEl.setAttribute("aria-live", "polite");
 statusEl.setAttribute("aria-atomic", "true");
 
-let game = new ChessGame();
+const restoredSession = loadSession();
+let game = restoredSession.game;
 let selected = null;
 let selectedMoves = [];
-let lastMove = null;
+let lastMove = restoredSession.lastMove;
+let claimedDrawType = restoredSession.claimedDrawType;
 let inputLocked = false;
 let geometryLock = null;
+let restoredNoticePending = restoredSession.restored;
+let discardedNoticePending = restoredSession.discarded;
 
 const cellViews = new Map();
 
@@ -51,7 +61,6 @@ const statusNames = {
   [GameStatus.DrawSeventyFiveMoveRule]: "Draw — 75-move rule",
 };
 
-// Permanent orientation contract: White is always at the bottom.
 function visualSquares() {
   const squares = [];
   for (let rank = 7; rank >= 0; rank -= 1) {
@@ -130,10 +139,11 @@ function createFixedBoardGrid() {
   }
 
   boardEl.append(fragment);
+  window.requestAnimationFrame(() => window.requestAnimationFrame(lockBoardGeometry));
+}
 
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(lockBoardGeometry);
-  });
+function persistCurrentGame() {
+  saveSession(game, claimedDrawType);
 }
 
 function render() {
@@ -185,7 +195,15 @@ function render() {
   statusEl.textContent = game.outcome.isTerminal
     ? statusNames[game.outcome.status]
     : `${side} to move${game.outcome.isCheck ? " — CHECK" : ""}`;
-  substatusEl.textContent = `Move ${game.position.fullmoveNumber} · ${game.moveHistory.length} half-moves · Engine-authoritative`;
+
+  const lifecycleNotice = restoredNoticePending
+    ? " · Saved game restored"
+    : discardedNoticePending
+      ? " · Invalid saved game discarded"
+      : "";
+  substatusEl.textContent = `Move ${game.position.fullmoveNumber} · ${game.moveHistory.length} half-moves · Engine-authoritative${lifecycleNotice}`;
+  restoredNoticePending = false;
+  discardedNoticePending = false;
 
   claimDrawBtn.disabled = !(
     game.outcome.canClaimThreefoldRepetition ||
@@ -280,8 +298,10 @@ async function onSquare(square) {
   try {
     game.play(move);
     lastMove = move;
+    claimedDrawType = null;
     selected = null;
     selectedMoves = [];
+    persistCurrentGame();
 
     render();
     if (game.outcome.isTerminal) await showTerminal();
@@ -309,13 +329,18 @@ async function showTerminal() {
 }
 
 function restart() {
+  clearSession();
   game = new ChessGame();
   selected = null;
   selectedMoves = [];
   lastMove = null;
+  claimedDrawType = null;
   inputLocked = false;
+  restoredNoticePending = false;
+  discardedNoticePending = false;
   victory.classList.remove("show");
   document.body.classList.remove("cinematic");
+  persistCurrentGame();
   render();
 }
 
@@ -324,14 +349,23 @@ rematchBtn.addEventListener("click", restart);
 claimDrawBtn.addEventListener("click", () => {
   if (game.outcome.canClaimThreefoldRepetition) {
     game.claimDraw(DrawClaimType.ThreefoldRepetition);
+    claimedDrawType = CLAIMED_DRAW.Threefold;
   } else if (game.outcome.canClaimFiftyMoveRule) {
     game.claimDraw(DrawClaimType.FiftyMoveRule);
+    claimedDrawType = CLAIMED_DRAW.FiftyMove;
   } else {
     return;
   }
+  persistCurrentGame();
   render();
   void showTerminal();
 });
 
+window.addEventListener("pagehide", persistCurrentGame, { capture: true });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") persistCurrentGame();
+});
+
 render();
 window.CROWNFORGE_READY = boardEl.children.length === 64;
+if (game.outcome.isTerminal) void showTerminal();
