@@ -1,0 +1,45 @@
+.install-app {
+  min-block-size: 2.25rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(221, 185, 105, 0.52);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(70, 50, 28, 0.9), rgba(28, 20, 14, 0.96));
+  color: #f4dfad;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  touch-action: manipulation;
+  cursor: pointer;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+.install-app:hover,
+.install-app:focus-visible {
+  border-color: rgba(244, 223, 173, 0.9);
+  background: linear-gradient(180deg, rgba(92, 66, 34, 0.96), rgba(34, 24, 15, 0.98));
+}
+
+.install-app:focus-visible {
+  outline: 2px solid #f4dfad;
+  outline-offset: 3px;
+}
+
+.install-app:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.install-app[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .install-app {
+    transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+  }
+
+  .install-app:active:not(:disabled) {
+    transform: translateY(1px) scale(0.985);
+  }
+}
