@@ -90,6 +90,15 @@ for (const contract of [
 ]) {
   if (!contract[1].test(app)) fail(`app contract missing: ${contract[0]}`);
 }
+for (const contract of [
+  ['immutable audio event payload', /Object\.freeze\(\{[\s\S]*?version:\s*1/],
+  ['engine-approved audio event', /game\.play\(move\)[\s\S]*publishAudioEvent\(["']move["']/],
+  ['capture audio metadata', /capture:\s*move\.isCapture/],
+  ['castling audio metadata', /MoveFlags\.CastleKingSide[\s\S]*MoveFlags\.CastleQueenSide/],
+  ['promotion audio metadata', /pieceName\(move\.promotion\)/],
+]) {
+  if (!contract[1].test(app)) fail(`engine-to-audio bridge missing: ${contract[0]}`);
+}
 
 const keyboardNavigation = read('src/keyboard-nav.js');
 for (const contract of [
@@ -198,25 +207,42 @@ for (const contract of [
   ['keyboard activation', /addEventListener\(["']keydown["']/],
   ['Web Audio feature detection', /window\.AudioContext\s*\|\|\s*window\.webkitAudioContext/],
   ['master dynamics protection', /createDynamicsCompressor\s*\(/],
+  ['soft peak limiter', /createWaveShaper\s*\(/],
   ['local concert-hall reverb', /createConvolver\s*\(/],
+  ['adaptive audio event channel', /crownforge:audio/],
+  ['ambience stem', /ambienceInput/],
+  ['strategy stem', /strategyInput/],
+  ['tension stem', /tensionInput/],
   ['persistent listener preference', /localStorage\.setItem\(STORAGE_KEY/],
   ['visibility lifecycle', /visibilitychange/],
   ['accessible pressed state', /aria-pressed/],
-  ['original score identity', /The Crown at Dusk/],
+  ['original score identity', /The Living Crown/],
+  ['checkmate cinematic score', /playCheckmateCue/],
+  ['draw resolution', /playDrawCue/],
 ]) {
   if (!contract[1].test(premiumSoundtrack)) {
     fail(`premium soundtrack contract missing: ${contract[0]}`);
   }
 }
 const masterGain = Number(premiumSoundtrack.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
-if (!Number.isFinite(masterGain) || masterGain <= 0 || masterGain > 0.14) {
-  fail(`premium soundtrack master gain must remain subtle and bounded; found ${masterGain}`);
+if (!Number.isFinite(masterGain) || masterGain < 0.3 || masterGain > 0.4) {
+  fail(`Living Crown master gain must be audibly raised but limiter-safe; found ${masterGain}`);
 }
 if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(premiumSoundtrack)) {
   fail('premium soundtrack must remain presentation-only');
 }
 if (/\bfetch\s*\(|XMLHttpRequest|WebSocket|https?:\/\//.test(premiumSoundtrack)) {
   fail('premium soundtrack must remain original, local and offline-only');
+}
+for (const piece of ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King']) {
+  if (!new RegExp(`function\\s+play${piece}Cue\\s*\\(`).test(premiumSoundtrack)) {
+    fail(`premium soundtrack piece identity missing: ${piece}`);
+  }
+}
+const feedback = read('src/feedback.js');
+const cinematicDirector = read('src/cinematic-director.js');
+if (/AudioContext|createOscillator/.test(feedback) || /AudioContext|createOscillator/.test(cinematicDirector)) {
+  fail('legacy presentation modules must not create duplicate audio contexts');
 }
 
 if (!process.exitCode) {

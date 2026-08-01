@@ -5,15 +5,30 @@
   if (!(button instanceof HTMLButtonElement)) return;
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const AUDIO_EVENT_NAME = "crownforge:audio";
   const STORAGE_KEY = "crownforge.soundtrack.enabled.v1";
-  const MASTER_GAIN = 0.11;
-  const CHORD_SECONDS = 10;
-  const SCHEDULE_AHEAD_SECONDS = 12;
-  const SCHEDULER_INTERVAL_MS = 2000;
+  const SCORE_NAME = "The Living Crown";
+  const MASTER_GAIN = 0.36;
+  const MUSIC_GAIN = 0.92;
+  const CUE_GAIN = 1.06;
+  const MIN_GAIN = 0.0001;
+  const BPM = 54;
+  const BEAT_SECONDS = 60 / BPM;
+  const CHORD_SECONDS = BEAT_SECONDS * 8;
+  const SCHEDULE_AHEAD_SECONDS = 10.5;
+  const SCHEDULER_INTERVAL_MS = 1800;
 
-  // "The Crown at Dusk" is an original, deterministic Crownforge score.
-  // It is synthesized locally so the installed PWA remains offline, compact,
-  // copyright-safe and free from network/streaming dependencies.
+  const PIECES = new Set(["pawn", "knight", "bishop", "rook", "queen", "king"]);
+  const PHASE_INTENSITY = Object.freeze({
+    opening: 0.2,
+    strategy: 0.38,
+    tension: 0.64,
+    endgame: 0.76,
+    terminal: 1,
+  });
+
+  // Original Crownforge harmony: Dm(add9) → Bbmaj7 → F(add9) → Csus2,
+  // followed by a Gm / Dm-A / A7sus4 / A7(b9) tension arc.
   const SCORE = Object.freeze([
     { pad: [146.83, 174.61, 220.00, 261.63, 329.63], bass: 73.42, motif: [587.33, 659.26, 523.25, 440.00] },
     { pad: [116.54, 146.83, 174.61, 220.00, 261.63], bass: 58.27, motif: [523.25, 440.00, 349.23, 440.00] },
@@ -25,15 +40,24 @@
     { pad: [110.00, 138.59, 164.81, 196.00, 233.08], bass: 55.00, motif: [587.33, 466.16, 415.30, 440.00] },
   ]);
 
-  let enabled = readPreference();
+  let musicEnabled = readPreference();
   let userActivated = false;
   let audioContext = null;
   let graph = null;
   let schedulerId = 0;
+  let scoreRunning = false;
   let nextChordTime = 0;
   let chordIndex = 0;
+  let targetIntensity = PHASE_INTENSITY.opening;
+  let lastMoveSequence = 0;
   let startPromise = null;
   let operation = 0;
+  const activeCueSources = new Set();
+  const activeScoreSources = new Set();
+
+  function clamp(value, minimum = 0, maximum = 1) {
+    return Math.max(minimum, Math.min(maximum, Number(value) || 0));
+  }
 
   function readPreference() {
     try {
@@ -45,19 +69,21 @@
 
   function savePreference() {
     try {
-      window.localStorage.setItem(STORAGE_KEY, enabled ? "on" : "off");
+      window.localStorage.setItem(STORAGE_KEY, musicEnabled ? "on" : "off");
     } catch {
-      // Storage can be unavailable in private modes; audio still works in-session.
+      // Storage can be unavailable in private modes; audio remains functional.
     }
   }
 
-  function renderButton(state = enabled ? "waiting" : "off") {
+  function renderButton(state = musicEnabled ? "waiting" : "off") {
     button.dataset.audioState = state;
-    button.setAttribute("aria-pressed", String(enabled));
-    button.textContent = enabled ? "♫ Music On" : "♫ Music Off";
-    button.title = enabled
-      ? "The Crown at Dusk — original Crownforge soundtrack"
-      : "Turn on The Crown at Dusk soundtrack";
+    button.dataset.score = "living-crown";
+    button.dataset.intensity = targetIntensity.toFixed(2);
+    button.setAttribute("aria-pressed", String(musicEnabled));
+    button.textContent = musicEnabled ? "♫ Music On" : "♫ Music Off";
+    button.title = musicEnabled
+      ? `${SCORE_NAME} — adaptive Crownforge score`
+      : `Turn on ${SCORE_NAME}`;
   }
 
   if (!AudioContextClass) {
@@ -76,16 +102,16 @@
   }
 
   function createReverb(context) {
-    const seconds = 2.6;
+    const seconds = 2.8;
     const impulse = context.createBuffer(2, Math.floor(context.sampleRate * seconds), context.sampleRate);
-    const random = seededNoise(0x43524f57);
+    const random = seededNoise(0x4c495649);
 
     for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
       const data = impulse.getChannelData(channel);
       for (let index = 0; index < data.length; index += 1) {
         const progress = index / data.length;
-        const earlyReflection = index % 317 === 0 ? 0.16 * (1 - progress) : 0;
-        data[index] = (random() * 0.56 + earlyReflection) * Math.pow(1 - progress, 3.25);
+        const earlyReflection = index % 293 === 0 ? 0.17 * (1 - progress) : 0;
+        data[index] = (random() * 0.53 + earlyReflection) * Math.pow(1 - progress, 3.35);
       }
     }
 
@@ -94,166 +120,293 @@
     return convolver;
   }
 
+  function createLimiterCurve() {
+    const curve = new Float32Array(2048);
+    const drive = 1.72;
+    const normalizer = Math.tanh(drive);
+    for (let index = 0; index < curve.length; index += 1) {
+      const sample = (index / (curve.length - 1)) * 2 - 1;
+      curve[index] = Math.tanh(sample * drive) / normalizer;
+    }
+    return curve;
+  }
+
   function createAudioGraph(context) {
-    const input = context.createGain();
+    const ambienceInput = context.createGain();
+    const strategyInput = context.createGain();
+    const tensionInput = context.createGain();
+    const ambienceGain = context.createGain();
+    const strategyGain = context.createGain();
+    const tensionGain = context.createGain();
+    const musicSum = context.createGain();
     const dry = context.createGain();
     const wet = context.createGain();
     const convolver = createReverb(context);
-    const tone = context.createBiquadFilter();
-    const compressor = context.createDynamicsCompressor();
+    const musicTone = context.createBiquadFilter();
+    const musicOutput = context.createGain();
+    const cueInput = context.createGain();
+    const cueDry = context.createGain();
+    const cueWet = context.createGain();
+    const cueReverb = createReverb(context);
+    const cueOutput = context.createGain();
     const master = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    const limiter = context.createWaveShaper();
 
+    ambienceGain.gain.value = 0.95;
+    strategyGain.gain.value = 0.24;
+    tensionGain.gain.value = MIN_GAIN;
     dry.gain.value = 0.78;
     wet.gain.value = 0.34;
-    tone.type = "lowpass";
-    tone.frequency.value = 5800;
-    tone.Q.value = 0.32;
-    compressor.threshold.value = -20;
-    compressor.knee.value = 18;
-    compressor.ratio.value = 4;
-    compressor.attack.value = 0.025;
-    compressor.release.value = 0.48;
-    master.gain.value = 0.0001;
+    cueDry.gain.value = 0.9;
+    cueWet.gain.value = 0.22;
+    musicTone.type = "lowpass";
+    musicTone.frequency.value = 6200;
+    musicTone.Q.value = 0.3;
+    musicOutput.gain.value = MIN_GAIN;
+    cueOutput.gain.value = CUE_GAIN;
+    master.gain.value = MASTER_GAIN;
+    compressor.threshold.value = -18;
+    compressor.knee.value = 16;
+    compressor.ratio.value = 7;
+    compressor.attack.value = 0.018;
+    compressor.release.value = 0.42;
+    limiter.curve = createLimiterCurve();
+    limiter.oversample = "2x";
 
-    input.connect(dry).connect(tone);
-    input.connect(convolver).connect(wet).connect(tone);
-    tone.connect(master).connect(compressor).connect(context.destination);
+    ambienceInput.connect(ambienceGain).connect(musicSum);
+    strategyInput.connect(strategyGain).connect(musicSum);
+    tensionInput.connect(tensionGain).connect(musicSum);
+    musicSum.connect(dry).connect(musicTone);
+    musicSum.connect(convolver).connect(wet).connect(musicTone);
+    musicTone.connect(musicOutput).connect(master);
+    cueInput.connect(cueDry).connect(cueOutput);
+    cueInput.connect(cueReverb).connect(cueWet).connect(cueOutput);
+    cueOutput.connect(master);
+    master.connect(compressor).connect(limiter).connect(context.destination);
 
-    const real = new Float32Array(7);
-    const imag = new Float32Array([0, 1, 0.34, 0.17, 0.08, 0.04, 0.018]);
+    const real = new Float32Array(8);
+    const imag = new Float32Array([0, 1, 0.38, 0.19, 0.095, 0.046, 0.022, 0.01]);
     const warmWave = context.createPeriodicWave(real, imag, { disableNormalization: false });
 
-    return { input, master, warmWave };
+    return {
+      ambienceInput,
+      strategyInput,
+      tensionInput,
+      ambienceGain,
+      strategyGain,
+      tensionGain,
+      musicOutput,
+      cueInput,
+      master,
+      compressor,
+      limiter,
+      warmWave,
+    };
   }
 
-  function connectWithPan(source, destination, panValue) {
-    if (typeof audioContext.createStereoPanner !== "function") {
+  function ramp(param, target, duration, start = audioContext.currentTime) {
+    const safeTarget = Math.max(MIN_GAIN, target);
+    const current = Math.max(MIN_GAIN, Number.isFinite(param.value) ? param.value : MIN_GAIN);
+    param.cancelScheduledValues(start);
+    param.setValueAtTime(current, start);
+    param.exponentialRampToValueAtTime(safeTarget, start + Math.max(0.01, duration));
+  }
+
+  function connectWithPan(context, source, destination, panValue) {
+    if (typeof context.createStereoPanner !== "function") {
       source.connect(destination);
       return;
     }
-    const panner = audioContext.createStereoPanner();
-    panner.pan.value = Math.max(-0.32, Math.min(0.32, panValue));
+    const panner = context.createStereoPanner();
+    panner.pan.value = clamp(panValue, -0.38, 0.38);
     source.connect(panner).connect(destination);
   }
 
-  function schedulePad(frequency, start, duration, voiceIndex, voiceCount) {
-    const oscillator = audioContext.createOscillator();
-    const filter = audioContext.createBiquadFilter();
-    const envelope = audioContext.createGain();
-    const stop = start + duration;
-    const peak = 0.082 / Math.sqrt(voiceCount);
-
-    oscillator.setPeriodicWave(graph.warmWave);
-    oscillator.frequency.setValueAtTime(frequency, start);
-    oscillator.detune.setValueAtTime((voiceIndex - (voiceCount - 1) / 2) * 1.8, start);
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(820 + voiceIndex * 90, start);
-    filter.frequency.linearRampToValueAtTime(1680 + voiceIndex * 110, start + duration * 0.52);
-    filter.frequency.linearRampToValueAtTime(940 + voiceIndex * 75, stop);
-    filter.Q.value = 0.72;
-    envelope.gain.setValueAtTime(0.0001, start);
-    envelope.gain.exponentialRampToValueAtTime(peak, start + 2.4);
-    envelope.gain.exponentialRampToValueAtTime(peak * 0.7, stop - 2.2);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, stop);
-
-    oscillator.connect(filter).connect(envelope);
-    connectWithPan(envelope, graph.input, voiceCount === 1 ? 0 : (voiceIndex / (voiceCount - 1) - 0.5) * 0.52);
-    oscillator.start(start);
-    oscillator.stop(stop + 0.05);
+  function trackSource(source, collection) {
+    collection.add(source);
+    source.onended = () => collection.delete(source);
   }
 
-  function scheduleBass(frequency, start, duration) {
-    const oscillator = audioContext.createOscillator();
-    const overtone = audioContext.createOscillator();
-    const filter = audioContext.createBiquadFilter();
-    const envelope = audioContext.createGain();
-    const stop = start + duration;
+  function scheduleVoice({
+    frequency,
+    start,
+    duration,
+    peak,
+    destination,
+    type = "sine",
+    warm = false,
+    attack = 0.02,
+    release = 0.36,
+    endFrequency = null,
+    detune = 0,
+    filterFrequency = null,
+    pan = 0,
+    cue = false,
+  }) {
+    if (!audioContext || !graph) return null;
+    const context = audioContext;
+    const safeStart = Math.max(context.currentTime + 0.004, start);
+    const safeDuration = Math.max(0.08, duration);
+    const stop = safeStart + safeDuration;
+    const safeAttack = Math.min(Math.max(0.008, attack), safeDuration * 0.42);
+    const safeRelease = Math.min(Math.max(0.04, release), safeDuration * 0.52);
+    const oscillator = context.createOscillator();
+    const envelope = context.createGain();
+    let sourceOutput = oscillator;
 
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(frequency, start);
-    overtone.type = "triangle";
-    overtone.frequency.setValueAtTime(frequency * 2, start);
-    overtone.detune.value = -3;
-    filter.type = "lowpass";
-    filter.frequency.value = 360;
-    filter.Q.value = 0.55;
-    envelope.gain.setValueAtTime(0.0001, start);
-    envelope.gain.exponentialRampToValueAtTime(0.11, start + 1.8);
-    envelope.gain.exponentialRampToValueAtTime(0.072, stop - 1.9);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, stop);
+    if (warm) oscillator.setPeriodicWave(graph.warmWave);
+    else oscillator.type = type;
+    oscillator.frequency.setValueAtTime(Math.max(20, frequency), safeStart);
+    oscillator.detune.setValueAtTime(detune, safeStart);
+    if (endFrequency) {
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), stop);
+    }
 
-    oscillator.connect(filter);
-    overtone.connect(filter);
-    filter.connect(envelope).connect(graph.input);
-    oscillator.start(start);
-    overtone.start(start);
+    if (filterFrequency) {
+      const filter = context.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(filterFrequency, safeStart);
+      filter.Q.value = 0.62;
+      oscillator.connect(filter);
+      sourceOutput = filter;
+    }
+
+    envelope.gain.setValueAtTime(MIN_GAIN, safeStart);
+    envelope.gain.exponentialRampToValueAtTime(Math.max(MIN_GAIN, peak), safeStart + safeAttack);
+    envelope.gain.exponentialRampToValueAtTime(
+      Math.max(MIN_GAIN, peak * 0.72),
+      Math.max(safeStart + safeAttack + 0.01, stop - safeRelease),
+    );
+    envelope.gain.exponentialRampToValueAtTime(MIN_GAIN, stop);
+    sourceOutput.connect(envelope);
+    connectWithPan(context, envelope, destination, pan);
+
+    trackSource(oscillator, cue ? activeCueSources : activeScoreSources);
+    oscillator.start(safeStart);
     oscillator.stop(stop + 0.05);
-    overtone.stop(stop + 0.05);
+    return oscillator;
   }
 
-  function scheduleBell(frequency, start, panValue) {
-    const fundamental = audioContext.createOscillator();
-    const harmonic = audioContext.createOscillator();
-    const envelope = audioContext.createGain();
-    const stop = start + 3.8;
-
-    fundamental.type = "sine";
-    fundamental.frequency.setValueAtTime(frequency, start);
-    harmonic.type = "sine";
-    harmonic.frequency.setValueAtTime(frequency * 2.005, start);
-    envelope.gain.setValueAtTime(0.0001, start);
-    envelope.gain.exponentialRampToValueAtTime(0.052, start + 0.018);
-    envelope.gain.exponentialRampToValueAtTime(0.016, start + 0.48);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, stop);
-
-    const harmonicGain = audioContext.createGain();
-    harmonicGain.gain.value = 0.18;
-    fundamental.connect(envelope);
-    harmonic.connect(harmonicGain).connect(envelope);
-    connectWithPan(envelope, graph.input, panValue);
-    fundamental.start(start);
-    harmonic.start(start);
-    fundamental.stop(stop + 0.05);
-    harmonic.stop(stop + 0.05);
+  function schedulePad(frequency, start, voiceIndex, voiceCount) {
+    scheduleVoice({
+      frequency,
+      start,
+      duration: CHORD_SECONDS + 0.45,
+      peak: 0.086 / Math.sqrt(voiceCount),
+      destination: graph.ambienceInput,
+      warm: true,
+      attack: 2.2,
+      release: 2.15,
+      detune: (voiceIndex - (voiceCount - 1) / 2) * 1.7,
+      filterFrequency: 1180 + voiceIndex * 120,
+      pan: voiceCount === 1 ? 0 : (voiceIndex / (voiceCount - 1) - 0.5) * 0.56,
+    });
   }
 
-  function schedulePulse(frequency, start) {
-    const oscillator = audioContext.createOscillator();
-    const filter = audioContext.createBiquadFilter();
-    const envelope = audioContext.createGain();
-    const stop = start + 1.25;
+  function scheduleBass(frequency, start) {
+    scheduleVoice({
+      frequency,
+      start,
+      duration: CHORD_SECONDS + 0.35,
+      peak: 0.12,
+      destination: graph.ambienceInput,
+      type: "sine",
+      attack: 1.55,
+      release: 1.8,
+      filterFrequency: 340,
+    });
+    scheduleVoice({
+      frequency: frequency * 2,
+      start,
+      duration: CHORD_SECONDS + 0.35,
+      peak: 0.045,
+      destination: graph.ambienceInput,
+      type: "triangle",
+      attack: 1.8,
+      release: 1.9,
+      detune: -3,
+      filterFrequency: 520,
+    });
+  }
 
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(frequency * 0.5, start);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(28, frequency * 0.36), stop);
-    filter.type = "lowpass";
-    filter.frequency.value = 190;
-    envelope.gain.setValueAtTime(0.0001, start);
-    envelope.gain.exponentialRampToValueAtTime(0.052, start + 0.035);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, stop);
+  function scheduleGlassMotif(frequency, start, pan) {
+    scheduleVoice({
+      frequency,
+      start,
+      duration: 3.6,
+      peak: 0.052,
+      destination: graph.strategyInput,
+      type: "sine",
+      attack: 0.018,
+      release: 2.9,
+      pan,
+    });
+    scheduleVoice({
+      frequency: frequency * 2.005,
+      start,
+      duration: 3.1,
+      peak: 0.011,
+      destination: graph.strategyInput,
+      type: "sine",
+      attack: 0.014,
+      release: 2.55,
+      pan,
+    });
+  }
 
-    oscillator.connect(filter).connect(envelope).connect(graph.input);
-    oscillator.start(start);
-    oscillator.stop(stop + 0.05);
+  function scheduleWarPulse(frequency, start) {
+    scheduleVoice({
+      frequency: frequency * 0.5,
+      start,
+      duration: 1.15,
+      peak: 0.074,
+      destination: graph.tensionInput,
+      type: "sine",
+      attack: 0.024,
+      release: 0.92,
+      endFrequency: Math.max(27, frequency * 0.34),
+      filterFrequency: 180,
+    });
+  }
+
+  function scheduleCelloOstinato(frequency, start, index) {
+    scheduleVoice({
+      frequency: frequency * (index % 4 === 3 ? 2 : 1.5),
+      start,
+      duration: 0.72,
+      peak: index % 2 === 0 ? 0.056 : 0.042,
+      destination: graph.tensionInput,
+      warm: true,
+      attack: 0.026,
+      release: 0.54,
+      endFrequency: frequency * (index % 4 === 3 ? 1.72 : 1.34),
+      filterFrequency: 760,
+      pan: index % 2 === 0 ? -0.14 : 0.14,
+    });
   }
 
   function scheduleChord(chord, start) {
-    const duration = CHORD_SECONDS + 0.35;
-    chord.pad.forEach((frequency, index) => {
-      schedulePad(frequency, start, duration, index, chord.pad.length);
-    });
-    scheduleBass(chord.bass, start, duration);
-    schedulePulse(chord.bass, start + 0.05);
-    schedulePulse(chord.bass, start + CHORD_SECONDS * 0.5);
+    chord.pad.forEach((frequency, index) => schedulePad(frequency, start, index, chord.pad.length));
+    scheduleBass(chord.bass, start);
 
-    const motifOffsets = [1.2, 3.7, 6.2, 8.7];
+    const motifBeats = [1.05, 3.05, 5.05, 7.05];
     chord.motif.forEach((frequency, index) => {
-      scheduleBell(frequency, start + motifOffsets[index], index % 2 === 0 ? -0.2 : 0.2);
+      scheduleGlassMotif(
+        frequency,
+        start + motifBeats[index] * BEAT_SECONDS,
+        index % 2 === 0 ? -0.2 : 0.2,
+      );
     });
+
+    for (let beat = 0; beat < 8; beat += 1) {
+      if (beat % 2 === 0) scheduleWarPulse(chord.bass, start + beat * BEAT_SECONDS + 0.04);
+      scheduleCelloOstinato(chord.bass, start + beat * BEAT_SECONDS + 0.18, beat);
+    }
   }
 
   function fillSchedule() {
-    if (!audioContext || audioContext.state !== "running" || !graph) return;
+    if (!scoreRunning || !audioContext || audioContext.state !== "running" || !graph) return;
     if (nextChordTime < audioContext.currentTime + 0.05) {
       nextChordTime = audioContext.currentTime + 0.08;
     }
@@ -264,16 +417,60 @@
     }
   }
 
-  function startScheduler() {
-    window.clearInterval(schedulerId);
-    fillSchedule();
-    schedulerId = window.setInterval(fillSchedule, SCHEDULER_INTERVAL_MS);
+  function applyIntensity(value, transition = 2.6) {
+    targetIntensity = clamp(value);
+    renderButton(
+      !musicEnabled ? "off" : audioContext?.state === "running" && scoreRunning ? "playing" : "waiting",
+    );
+    if (!audioContext || !graph) return;
+
+    const ambience = 1 - targetIntensity * 0.22;
+    const strategy = 0.14 + targetIntensity * 0.86;
+    const tension = clamp((targetIntensity - 0.34) / 0.66) * 1.04;
+    ramp(graph.ambienceGain.gain, ambience, transition);
+    ramp(graph.strategyGain.gain, strategy, transition);
+    ramp(graph.tensionGain.gain, tension, transition);
   }
 
-  async function startSoundtrack() {
-    if (!enabled || !userActivated || document.visibilityState === "hidden") return;
+  function startScore() {
+    if (!musicEnabled || !audioContext || audioContext.state !== "running" || !graph) return;
+    if (!scoreRunning) {
+      scoreRunning = true;
+      nextChordTime = audioContext.currentTime + 0.08;
+      window.clearInterval(schedulerId);
+      fillSchedule();
+      schedulerId = window.setInterval(fillSchedule, SCHEDULER_INTERVAL_MS);
+    }
+    ramp(graph.musicOutput.gain, MUSIC_GAIN, 1.65);
+    applyIntensity(targetIntensity, 1.8);
+    renderButton("playing");
+  }
+
+  function stopScore() {
+    scoreRunning = false;
+    window.clearInterval(schedulerId);
+    schedulerId = 0;
+    stopSources(activeScoreSources);
+    if (audioContext && graph) ramp(graph.musicOutput.gain, MIN_GAIN, 0.42);
+    renderButton("off");
+  }
+
+  function duckMusic(depth, hold, release, returnLevel = MUSIC_GAIN) {
+    if (!musicEnabled || !scoreRunning || !audioContext || !graph) return;
+    const now = audioContext.currentTime;
+    const param = graph.musicOutput.gain;
+    const current = Math.max(MIN_GAIN, Number.isFinite(param.value) ? param.value : MUSIC_GAIN);
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(current, now);
+    param.exponentialRampToValueAtTime(Math.max(MIN_GAIN, MUSIC_GAIN * depth), now + 0.075);
+    param.setValueAtTime(Math.max(MIN_GAIN, MUSIC_GAIN * depth), now + hold);
+    param.exponentialRampToValueAtTime(Math.max(MIN_GAIN, returnLevel), now + hold + release);
+  }
+
+  async function ensureAudio() {
+    if (!userActivated || document.visibilityState === "hidden") return;
     if (audioContext?.state === "running") {
-      renderButton("playing");
+      if (musicEnabled) startScore();
       return;
     }
     if (startPromise) return startPromise;
@@ -283,49 +480,31 @@
       let candidateContext = audioContext;
       let candidateGraph = graph;
       try {
-        if (candidateContext?.state === "suspended") {
-          await candidateContext.resume();
-          if (operationId !== operation || !enabled) return;
-          if (document.visibilityState === "hidden") {
-            await candidateContext.suspend();
-            renderButton("paused");
-            return;
-          }
-          startScheduler();
-          renderButton("playing");
-          return;
+        if (!candidateContext || candidateContext.state === "closed") {
+          candidateContext = new AudioContextClass({ latencyHint: "interactive" });
+          candidateGraph = createAudioGraph(candidateContext);
         }
-
-        candidateContext = new AudioContextClass({ latencyHint: "playback" });
-        candidateGraph = createAudioGraph(candidateContext);
         await candidateContext.resume();
-        if (operationId !== operation || !enabled) {
+        if (operationId !== operation) {
           await candidateContext.close();
           return;
         }
 
         audioContext = candidateContext;
         graph = candidateGraph;
-        nextChordTime = candidateContext.currentTime + 0.08;
-        chordIndex = 0;
+        applyIntensity(targetIntensity, 0.08);
         if (document.visibilityState === "hidden") {
-          await candidateContext.suspend();
-          renderButton("paused");
+          await audioContext.suspend();
+          renderButton(musicEnabled ? "paused" : "off");
           return;
         }
-        startScheduler();
-        const now = candidateContext.currentTime;
-        candidateGraph.master.gain.cancelScheduledValues(now);
-        candidateGraph.master.gain.setValueAtTime(0.0001, now);
-        candidateGraph.master.gain.exponentialRampToValueAtTime(MASTER_GAIN, now + 2.8);
-        renderButton("playing");
+        if (musicEnabled) startScore();
+        else renderButton("off");
       } catch {
-        if (operationId !== operation) {
-          candidateContext?.close().catch(() => {});
-          return;
-        }
+        if (operationId !== operation) return;
         audioContext = null;
         graph = null;
+        scoreRunning = false;
         window.clearInterval(schedulerId);
         schedulerId = 0;
         button.disabled = true;
@@ -342,58 +521,451 @@
     }
   }
 
-  function stopSoundtrack() {
-    operation += 1;
-    startPromise = null;
-    window.clearInterval(schedulerId);
-    schedulerId = 0;
-    const closingContext = audioContext;
-    const closingGraph = graph;
-    audioContext = null;
-    graph = null;
-    nextChordTime = 0;
-    chordIndex = 0;
-
-    if (!closingContext || closingContext.state === "closed") return;
-    const now = closingContext.currentTime;
-    if (closingGraph) {
-      closingGraph.master.gain.cancelScheduledValues(now);
-      closingGraph.master.gain.setValueAtTime(Math.max(0.0001, closingGraph.master.gain.value), now);
-      closingGraph.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-    }
-    window.setTimeout(() => closingContext.close().catch(() => {}), 500);
+  function panForSquare(square) {
+    if (typeof square !== "string" || !/^[a-h][1-8]$/.test(square)) return 0;
+    return ((square.charCodeAt(0) - 97) / 7 - 0.5) * 0.58;
   }
 
-  function unlock(event) {
+  function sideRatio(side) {
+    return side === "white" ? 1.045 : side === "black" ? 0.955 : 1;
+  }
+
+  function cueTone(frequency, start, duration, peak, options = {}) {
+    return scheduleVoice({
+      frequency,
+      start,
+      duration,
+      peak,
+      destination: graph.cueInput,
+      cue: true,
+      ...options,
+    });
+  }
+
+  function cueChord(frequencies, start, duration, peak, options = {}) {
+    frequencies.forEach((frequency, index) => {
+      cueTone(frequency, start + index * 0.025, duration, peak / Math.sqrt(frequencies.length), {
+        pan: (options.pan ?? 0) + (index - (frequencies.length - 1) / 2) * 0.045,
+        warm: true,
+        attack: 0.08,
+        release: Math.min(duration * 0.68, 1.8),
+        filterFrequency: 2200,
+        ...options,
+      });
+    });
+  }
+
+  function playPawnCue(detail, start) {
+    const ratio = sideRatio(detail.side);
+    const pan = panForSquare(detail.to);
+    cueTone(146.83 * ratio, start, 0.4, 0.16, {
+      warm: true,
+      attack: 0.018,
+      release: 0.32,
+      endFrequency: 118 * ratio,
+      filterFrequency: 680,
+      pan,
+    });
+    cueTone(220 * ratio, start + 0.055, 0.24, 0.07, {
+      type: "triangle",
+      attack: 0.014,
+      release: 0.18,
+      filterFrequency: 920,
+      pan,
+    });
+  }
+
+  function playKnightCue(detail, start) {
+    const ratio = sideRatio(detail.side);
+    const pan = panForSquare(detail.to);
+    [293.66, 440, 349.23].forEach((frequency, index) => {
+      cueTone(frequency * ratio, start + index * 0.105, 0.3, 0.115, {
+        type: "triangle",
+        attack: 0.012,
+        release: 0.24,
+        endFrequency: frequency * ratio * 0.92,
+        filterFrequency: 1450,
+        pan: pan + (index - 1) * 0.04,
+      });
+    });
+  }
+
+  function playBishopCue(detail, start) {
+    const ratio = sideRatio(detail.side);
+    const pan = panForSquare(detail.to);
+    cueChord([523.25, 659.26, 783.99].map((frequency) => frequency * ratio), start, 0.92, 0.17, {
+      type: "sine",
+      warm: false,
+      attack: 0.035,
+      release: 0.78,
+      filterFrequency: 4200,
+      pan,
+    });
+  }
+
+  function playRookCue(detail, start) {
+    const ratio = sideRatio(detail.side);
+    const pan = panForSquare(detail.to);
+    cueTone(73.42 * ratio, start, 0.82, 0.19, {
+      warm: true,
+      attack: 0.024,
+      release: 0.68,
+      endFrequency: 61.74 * ratio,
+      filterFrequency: 760,
+      pan,
+    });
+    cueTone(146.83 * ratio, start + 0.035, 0.68, 0.105, {
+      type: "triangle",
+      attack: 0.02,
+      release: 0.54,
+      filterFrequency: 1050,
+      pan,
+    });
+  }
+
+  function playQueenCue(detail, start) {
+    const ratio = sideRatio(detail.side);
+    const pan = panForSquare(detail.to);
+    cueChord([440, 659.26, 880].map((frequency) => frequency * ratio), start, 1.12, 0.2, {
+      type: "sine",
+      warm: false,
+      attack: 0.045,
+      release: 0.94,
+      filterFrequency: 5200,
+      pan,
+    });
+    cueTone(1318.51 * ratio, start + 0.12, 1.25, 0.045, {
+      type: "sine",
+      attack: 0.012,
+      release: 1.05,
+      pan,
+    });
+  }
+
+  function playKingCue(detail, start) {
+    const ratio = sideRatio(detail.side);
+    const pan = panForSquare(detail.to);
+    cueChord([196, 293.66, 392].map((frequency) => frequency * ratio), start, 1.08, 0.22, {
+      warm: true,
+      attack: 0.075,
+      release: 0.88,
+      filterFrequency: 2400,
+      pan,
+    });
+  }
+
+  const pieceCuePlayers = Object.freeze({
+    pawn: playPawnCue,
+    knight: playKnightCue,
+    bishop: playBishopCue,
+    rook: playRookCue,
+    queen: playQueenCue,
+    king: playKingCue,
+  });
+
+  function playCaptureCue(detail, start) {
+    const pan = panForSquare(detail.to);
+    cueTone(96, start, 0.72, 0.2, {
+      type: "sine",
+      attack: 0.014,
+      release: 0.58,
+      endFrequency: 48,
+      filterFrequency: 320,
+      pan,
+    });
+    cueTone(860, start + 0.018, 0.34, 0.092, {
+      type: "triangle",
+      attack: 0.009,
+      release: 0.27,
+      endFrequency: 390,
+      filterFrequency: 2600,
+      pan,
+    });
+    duckMusic(0.52, 0.32, 1.05);
+  }
+
+  function playEnPassantCue(detail, start) {
+    const pan = panForSquare(detail.to);
+    cueTone(740, start, 0.78, 0.11, {
+      type: "sine",
+      attack: 0.03,
+      release: 0.62,
+      endFrequency: 370,
+      pan,
+    });
+    cueTone(277.18, start + 0.08, 0.62, 0.075, {
+      warm: true,
+      attack: 0.045,
+      release: 0.48,
+      pan: -pan,
+    });
+  }
+
+  function playCastleCue(detail, start) {
+    playKingCue(detail, start);
+    playRookCue(detail, start + 0.18);
+    cueTone(110, start + 0.06, 1.05, 0.13, {
+      warm: true,
+      attack: 0.08,
+      release: 0.82,
+      filterFrequency: 820,
+      pan: detail.castle === "king-side" ? 0.22 : -0.22,
+    });
+    duckMusic(0.66, 0.42, 1.2);
+  }
+
+  function playPromotionCue(detail, start) {
+    cueTone(164.81, start, 1.45, 0.13, {
+      warm: true,
+      attack: 0.055,
+      release: 0.72,
+      endFrequency: 659.26,
+      filterFrequency: 3200,
+      pan: panForSquare(detail.to),
+    });
+    cueChord([329.63, 493.88, 659.26], start + 0.72, 1.2, 0.18, {
+      attack: 0.06,
+      release: 0.92,
+      filterFrequency: 4300,
+      pan: panForSquare(detail.to),
+    });
+    const promotedPlayer = PIECES.has(detail.promotion) ? pieceCuePlayers[detail.promotion] : null;
+    if (promotedPlayer) promotedPlayer({ ...detail, piece: detail.promotion }, start + 0.88);
+    duckMusic(0.44, 1.05, 1.4);
+  }
+
+  function playCheckCue(start) {
+    cueChord([392, 415.3], start, 0.82, 0.2, {
+      type: "sine",
+      warm: false,
+      attack: 0.022,
+      release: 0.68,
+      filterFrequency: 3600,
+    });
+    cueTone(587.33, start + 0.16, 0.9, 0.11, {
+      type: "sine",
+      attack: 0.03,
+      release: 0.72,
+      endFrequency: 554.37,
+    });
+    duckMusic(0.38, 0.72, 1.3);
+  }
+
+  function playIllegalCue(start) {
+    cueTone(92.5, start, 0.24, 0.105, {
+      type: "triangle",
+      attack: 0.01,
+      release: 0.19,
+      endFrequency: 68,
+      filterFrequency: 480,
+    });
+  }
+
+  function playCheckmateCue(detail, start) {
+    const winnerRatio = detail.winner === "white" ? 1.045 : 0.955;
+    applyIntensity(1, 0.32);
+    duckMusic(0.12, 4.35, 1.55, MUSIC_GAIN * 0.56);
+
+    cueTone(58.27, start, 1.4, 0.24, {
+      type: "sine",
+      attack: 0.012,
+      release: 1.12,
+      endFrequency: 31,
+      filterFrequency: 260,
+    });
+    cueTone(1180, start + 0.018, 0.58, 0.12, {
+      type: "triangle",
+      attack: 0.008,
+      release: 0.48,
+      endFrequency: 410,
+      filterFrequency: 3200,
+    });
+
+    // Losing-king focus: an unresolved minor-second under the slow-motion beat.
+    cueChord([138.59, 146.83], start + 0.26, 1.45, 0.19, {
+      type: "sine",
+      warm: false,
+      attack: 0.12,
+      release: 1.05,
+      filterFrequency: 1250,
+    });
+
+    // Winning side reveal: royal horn/choir voicing, then a Picardy-third crown resolution.
+    cueChord([146.83, 174.61, 220].map((note) => note * winnerRatio), start + 1.16, 2.35, 0.29, {
+      warm: true,
+      attack: 0.32,
+      release: 1.48,
+      filterFrequency: 2600,
+      pan: detail.winner === "white" ? 0.1 : -0.1,
+    });
+    cueChord([146.83, 185, 220, 293.66].map((note) => note * winnerRatio), start + 2.74, 3.05, 0.34, {
+      warm: true,
+      attack: 0.28,
+      release: 2.15,
+      filterFrequency: 3200,
+    });
+    [587.33, 739.99, 880].forEach((frequency, index) => {
+      cueTone(frequency * winnerRatio, start + 2.82 + index * 0.115, 2.25, 0.075, {
+        type: "sine",
+        attack: 0.012,
+        release: 1.92,
+        pan: (index - 1) * 0.2,
+      });
+    });
+  }
+
+  function playDrawCue(start) {
+    applyIntensity(0.28, 0.5);
+    duckMusic(0.34, 1.4, 1.5, MUSIC_GAIN * 0.62);
+    cueChord([146.83, 174.61, 220, 329.63], start + 0.08, 2.7, 0.25, {
+      warm: true,
+      attack: 0.24,
+      release: 1.95,
+      filterFrequency: 2600,
+    });
+    cueTone(440, start + 0.36, 1.8, 0.06, {
+      type: "sine",
+      attack: 0.08,
+      release: 1.48,
+    });
+  }
+
+  function stopSources(collection) {
+    if (!audioContext) return;
+    for (const source of collection) {
+      try {
+        source.stop(audioContext.currentTime + 0.01);
+      } catch {
+        // A source that has already ended is harmless.
+      }
+    }
+    collection.clear();
+  }
+
+  function stopActiveCues() {
+    stopSources(activeCueSources);
+  }
+
+  function playMove(detail) {
+    if (!audioContext || !graph) return;
+    const start = audioContext.currentTime + 0.018;
+    const player = PIECES.has(detail.piece) ? pieceCuePlayers[detail.piece] : null;
+
+    if (detail.castle) playCastleCue(detail, start);
+    else if (player) player(detail, start);
+
+    if (detail.capture) playCaptureCue(detail, start + 0.035);
+    if (detail.enPassant) playEnPassantCue(detail, start + 0.08);
+    if (detail.promotion) playPromotionCue(detail, start + 0.14);
+
+    if (detail.terminal) {
+      if (detail.outcome === "checkmate") playCheckmateCue(detail, start + 0.08);
+      else playDrawCue(start + 0.08);
+    } else if (detail.check) {
+      playCheckCue(start + 0.16);
+    }
+  }
+
+  function playTerminal(detail) {
+    if (!audioContext || !graph) return;
+    const start = audioContext.currentTime + 0.02;
+    if (detail.outcome === "checkmate") playCheckmateCue(detail, start);
+    else playDrawCue(start);
+  }
+
+  function handleAudioEvent(event) {
+    const detail = event?.detail;
+    if (!detail || detail.version !== 1 || typeof detail.kind !== "string") return;
+
+    const phaseLevel = PHASE_INTENSITY[detail.phase];
+    const requestedIntensity = Number.isFinite(detail.intensity) ? detail.intensity : phaseLevel;
+    if (Number.isFinite(requestedIntensity)) targetIntensity = clamp(requestedIntensity);
+
+    if (detail.kind === "ready") {
+      renderButton();
+      return;
+    }
+
+    if (!userActivated) return;
+    void ensureAudio().then(() => {
+      if (!audioContext || !graph) return;
+      applyIntensity(targetIntensity);
+
+      if (detail.kind === "restart") {
+        stopActiveCues();
+        lastMoveSequence = 0;
+        applyIntensity(PHASE_INTENSITY.opening, 1.25);
+        if (musicEnabled) ramp(graph.musicOutput.gain, MUSIC_GAIN, 1.1);
+        return;
+      }
+
+      if (detail.kind === "illegal") {
+        playIllegalCue(audioContext.currentTime + 0.012);
+        return;
+      }
+
+      if (detail.kind === "move") {
+        if (!Number.isInteger(detail.sequence) || detail.sequence <= lastMoveSequence) return;
+        lastMoveSequence = detail.sequence;
+        playMove(detail);
+        return;
+      }
+
+      if (detail.kind === "terminal") playTerminal(detail);
+    });
+  }
+
+  function unlock() {
     userActivated = true;
-    if (event.target !== button) void startSoundtrack();
+    void ensureAudio();
+  }
+
+  function closeAudio() {
+    operation += 1;
+    startPromise = null;
+    scoreRunning = false;
+    window.clearInterval(schedulerId);
+    schedulerId = 0;
+    stopActiveCues();
+    stopSources(activeScoreSources);
+    const closingContext = audioContext;
+    audioContext = null;
+    graph = null;
+    if (closingContext && closingContext.state !== "closed") {
+      closingContext.close().catch(() => {});
+    }
   }
 
   button.addEventListener("click", () => {
     userActivated = true;
-    enabled = !enabled;
+    musicEnabled = !musicEnabled;
     savePreference();
-    renderButton(enabled ? "starting" : "off");
-    if (enabled) void startSoundtrack();
-    else stopSoundtrack();
+    if (!musicEnabled) {
+      stopScore();
+      return;
+    }
+    renderButton("starting");
+    void ensureAudio().then(startScore);
   });
 
   window.addEventListener("pointerdown", unlock, { once: true, capture: true, passive: true });
   window.addEventListener("keydown", unlock, { once: true, capture: true });
+  window.addEventListener(AUDIO_EVENT_NAME, handleAudioEvent);
 
   document.addEventListener("visibilitychange", () => {
     if (!audioContext) return;
     if (document.visibilityState === "hidden") {
       window.clearInterval(schedulerId);
       schedulerId = 0;
+      scoreRunning = false;
+      stopSources(activeScoreSources);
       audioContext.suspend().catch(() => {});
-      renderButton(enabled ? "paused" : "off");
-    } else if (enabled && userActivated) {
-      void startSoundtrack();
+      renderButton(musicEnabled ? "paused" : "off");
+    } else if (userActivated) {
+      void ensureAudio();
     }
   });
 
-  window.addEventListener("pagehide", stopSoundtrack, { once: true });
-
+  window.addEventListener("pagehide", closeAudio, { once: true });
   renderButton();
 })();

@@ -45,9 +45,14 @@ jobs:
           node --check src/engine-stable.js
           node --check src/feedback.js
           node --check src/premium-soundtrack.js
+          node --check src/cinematic-director.js
+          node --check .github/scripts/verify-living-crown.mjs
 
       - name: Verify offline app-shell integrity
         run: node .github/scripts/verify-pwa-integrity.mjs
 
       - name: Verify production 3D renderer contracts
         run: node .github/scripts/verify-3d-renderer.mjs
+
+      - name: Verify adaptive Living Crown audio contracts
+        run: node .github/scripts/verify-living-crown.mjs

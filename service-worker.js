@@ -1,4 +1,4 @@
-const CACHE = "crownforge-v30-premium-3d-soundtrack";
+const CACHE = "crownforge-v30-living-crown";
 const APP_SHELL = [
   "./",
   "./index.html",

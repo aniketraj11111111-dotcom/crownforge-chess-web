@@ -102,15 +102,32 @@ if (errors.length === 0) {
   }
 
   const soundtrack = read('src/premium-soundtrack.js');
-  if (!/createDynamicsCompressor\s*\(/.test(soundtrack) || !/createConvolver\s*\(/.test(soundtrack)) {
+  if (!/createDynamicsCompressor\s*\(/.test(soundtrack) ||
+      !/createWaveShaper\s*\(/.test(soundtrack) ||
+      !/createConvolver\s*\(/.test(soundtrack)) {
     fail('premium soundtrack mastering graph is incomplete');
+  }
+  if (!/The Living Crown/.test(soundtrack) || !/crownforge:audio/.test(soundtrack)) {
+    fail('adaptive Living Crown score contract is missing');
   }
   if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(soundtrack)) {
     fail('premium soundtrack attempted to own chess state');
   }
+  const masterGain = Number(soundtrack.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
+  if (!Number.isFinite(masterGain) || masterGain < 0.3 || masterGain > 0.4) {
+    fail(`Living Crown master gain is outside its limiter-safe audible range: ${masterGain}`);
+  }
+  const feedback = read('src/feedback.js');
+  const cinematicDirector = read('src/cinematic-director.js');
+  if (/AudioContext|createOscillator/.test(feedback) || /AudioContext|createOscillator/.test(cinematicDirector)) {
+    fail('legacy modules still create duplicate audio contexts');
+  }
+  if (!/game\.play\(move\)[\s\S]*publishAudioEvent\(["']move["']/.test(app)) {
+    fail('audio events are not downstream of the authoritative engine transition');
+  }
 
   const worker = read('service-worker.js');
-  if (!/crownforge-v30-premium-3d/.test(worker)) fail('service-worker cache is not v30');
+  if (!/crownforge-v30-living-crown/.test(worker)) fail('service-worker cache is not the Living Crown v30 shell');
   for (const asset of [
     './index.html',
     './production-board.css?v=30',
