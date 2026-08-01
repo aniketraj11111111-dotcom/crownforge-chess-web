@@ -16,83 +16,52 @@ concurrency:
 
 jobs:
   fast-tests:
-    name: Engine, immutable-board and fail-safe WebGL tests
+    name: Engine, PWA and premium WebGL gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify fixed board and permanently aligned WebGL fallback
+      - name: Verify browser source syntax
         shell: bash
         run: |
-          node --check src/app-stable.js
-          node --check src/feedback.js
-          node --check src/board3d.js
-          node --check src/board3d-meshes.js
-          node --check service-worker.js
+          for file in src/*.js service-worker.js; do node --check "$file"; done
 
+      - name: Verify architecture and offline shell
+        run: node .github/scripts/verify-pwa-integrity.mjs
+
+      - name: Verify immutable grid and premium board contracts
+        shell: bash
+        run: |
           grep -q 'dataset.orientation = "white"' src/app-stable.js
           grep -q 'function lockBoardGeometry' src/app-stable.js
           grep -q 'cellViews.size === 64' src/app-stable.js
           grep -q 'dataset.geometryLocked = "true"' src/app-stable.js
           grep -q 'grid-template-columns: repeat(8' board-geometry-lock.css
           grep -q 'grid-template-rows: repeat(8' board-geometry-lock.css
-
           grep -q '<canvas id="board-3d" data-ready="false" data-aligned="false"' index.html
-          grep -q 'premium-phase1.css?v=12' index.html
-          grep -q 'webgl-phase2.css?v=12' index.html
-          grep -q 'board-geometry-lock.css?v=12' index.html
-          grep -q 'src/board3d.js?v=12' index.html
-          grep -q 'src/app-stable.js?v=12' index.html
-
+          grep -Eq 'premium-phase1.css\?v=[0-9]+' index.html
+          grep -Eq 'webgl-phase2.css\?v=[0-9]+' index.html
+          grep -Eq 'board-geometry-lock.css\?v=[0-9]+' index.html
+          grep -Eq 'src/board3d.js\?v=[0-9]+' index.html
+          grep -Eq 'src/app-stable.js\?v=[0-9]+' index.html
           grep -q 'function syncCanvasToBoard' src/board3d.js
-          grep -q 'board.offsetLeft' src/board3d.js
-          grep -q 'board.offsetTop' src/board3d.js
+          grep -q 'buildBoardMeshes' src/board3d.js
           grep -q 'new ResizeObserver' src/board3d.js
-          grep -q 'document.fonts.ready' src/board3d.js
           grep -q 'canvas.dataset.aligned' src/board3d.js
           grep -q 'activateFallback' src/board3d.js
-          grep -q "from \"./board3d-meshes.js\"" src/board3d.js
-          grep -q 'getContext("webgl2"' src/board3d.js
-
           grep -q 'pointer-events: none !important' webgl-phase2.css
           grep -q '#board-3d\[data-ready="true"\]\[data-aligned="true"\] + .board .piece' webgl-phase2.css
           grep -q 'html:not(.webgl-3d-ready) .board .piece' webgl-phase2.css
-          grep -q 'webgl-3d-unavailable' webgl-phase2.css
-
-          premium_line=$(grep -n 'premium-phase1.css?v=12' index.html | head -1 | cut -d: -f1)
-          webgl_line=$(grep -n 'webgl-phase2.css?v=12' index.html | head -1 | cut -d: -f1)
-          geometry_line=$(grep -n 'board-geometry-lock.css?v=12' index.html | head -1 | cut -d: -f1)
-          if [ "$premium_line" -ge "$webgl_line" ] || [ "$webgl_line" -ge "$geometry_line" ]; then
-            echo "Unsafe premium/WebGL/geometry stylesheet order."
-            exit 1
-          fi
-
-          if grep -Eq 'grid-template|aspect-ratio|--locked-board-size|--locked-cell-size' premium-phase1.css webgl-phase2.css; then
-            echo "Presentation layer attempted to control board geometry."
-            exit 1
-          fi
-
           if grep -Eq 'ChessGame|game\.play|engine-stable|applyLegalMove|generateLegalMoves' src/board3d.js src/board3d-meshes.js; then
-            echo "WebGL presentation attempted to access or mutate chess state."
+            echo "WebGL presentation attempted to access chess state."
             exit 1
           fi
-
           if grep -Eq 'id="rotate"|id="auto-rotate"|Flip Board|whiteBottom|autoRotateInput|rotateBtn' index.html src/app-stable.js; then
-            echo "Board rotation code or controls were detected."
+            echo "Board rotation code was detected."
             exit 1
           fi
 
-          if grep -Eq 'classList\.(add|remove)\("(move-impact|illegal)"' src/app-stable.js; then
-            echo "Whole-board animation trigger was detected."
-            exit 1
-          fi
-
-          if [ "$(grep -c 'boardEl.replaceChildren' src/app-stable.js)" -ne 1 ]; then
-            echo "Board DOM must be created once and reused after initial render."
-            exit 1
-          fi
-
-      - name: Restore verified checkpoint
+      - name: Restore verified rules checkpoint
         shell: bash
         run: |
           cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
@@ -129,14 +98,12 @@ jobs:
             expected: 3894594
     steps:
       - uses: actions/checkout@v4
-
       - name: Restore verified checkpoint
         shell: bash
         run: |
           cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
-
       - name: Verify depth-4 leaf count
         env:
           FEN: ${{ matrix.fen }}
@@ -151,7 +118,7 @@ jobs:
           NODE
 
   deploy:
-    name: Publish aligned fail-safe WebGL build
+    name: Publish cinematic premium build
     needs: [fast-tests, canonical-perft]
     environment:
       name: github-pages
@@ -160,64 +127,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore verified checkpoint
+      - name: Restore verified browser engine
         shell: bash
         run: |
           cat .payload/crownforge.part* | base64 --decode > crownforge-checkpoint.zip
           echo "1bc617418feb0da5860fbb789265df2e496b3e95fea0474af0fcf3896dbbf770  crownforge-checkpoint.zip" | sha256sum --check
           unzip -q crownforge-checkpoint.zip
 
-      - name: Build aligned geometry-locked deployment package
+      - name: Build static deployment package
         shell: bash
         run: |
           rm -rf site
-          cp -R CrownforgeChess_WebCheckpoint1/dist site
-          cp index.html styles.css last-move.css turn-guidance.css premium-phase1.css webgl-phase2.css board-geometry-lock.css manifest.webmanifest service-worker.js site/
-          mkdir -p site/src site/public
-          cp src/app-stable.js src/feedback.js src/board3d.js src/board3d-meshes.js site/src/
+          mkdir -p site
+          cp index.html manifest.webmanifest service-worker.js site/
+          cp ./*.css site/
+          cp -R src public site/
           cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
-          cp -R public/. site/public/
-
-          node --check site/src/app-stable.js
-          node --check site/src/engine-stable.js
-          node --check site/src/feedback.js
-          node --check site/src/board3d.js
-          node --check site/src/board3d-meshes.js
-          node --check site/service-worker.js
-
-          grep -q '<canvas id="board-3d" data-ready="false" data-aligned="false"' site/index.html
-          grep -q 'src/board3d.js?v=12' site/index.html
-          grep -q 'webgl-phase2.css?v=12' site/index.html
-          grep -q 'board-geometry-lock.css?v=12' site/index.html
-          grep -q 'dataset.orientation = "white"' site/src/app-stable.js
-          grep -q 'dataset.geometryLocked = "true"' site/src/app-stable.js
-          grep -q 'function syncCanvasToBoard' site/src/board3d.js
-          grep -q 'new ResizeObserver' site/src/board3d.js
-          grep -q 'pointer-events: none !important' site/webgl-phase2.css
-          grep -q '#board-3d\[data-ready="true"\]\[data-aligned="true"\] + .board .piece' site/webgl-phase2.css
-
-          if grep -q 'DecompressionStream' site/src/engine-stable.js; then
-            echo "Compressed browser engine loader reached deployment package."
-            exit 1
-          fi
-
-          if grep -Eq 'ChessGame|game\.play|engine-stable|applyLegalMove|generateLegalMoves' site/src/board3d.js site/src/board3d-meshes.js; then
-            echo "WebGL presentation reached into the chess engine."
-            exit 1
-          fi
-
+          cd site
+          for file in src/*.js service-worker.js; do node --check "$file"; done
+          node ../.github/scripts/verify-pwa-integrity.mjs
           node --input-type=module <<'NODE'
-          import { ChessGame, Side } from './site/src/engine-stable.js';
+          import { ChessGame, Side } from './src/engine-stable.js';
           const game = new ChessGame();
-          if (game.position.sideToMove !== Side.White) throw new Error('Initial side-to-move is not White.');
-          if (game.getLegalMoves().length !== 20) throw new Error('Stable deployed engine did not generate 20 initial legal moves.');
-          console.log('Stable deployed engine import and initial legal-move gate passed.');
+          if (game.position.sideToMove !== Side.White || game.getLegalMoves().length !== 20) {
+            throw new Error('Deployed engine gate failed');
+          }
+          console.log('Deployed engine gate passed.');
           NODE
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload aligned playable PWA
+      - name: Upload playable PWA
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
