@@ -22,6 +22,8 @@ for (const file of [
   'src/touch-feedback.js',
   'touch-feedback.css',
   'src/screen-wake.js',
+  'src/connectivity-status.js',
+  'offline-status.css',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -148,6 +150,23 @@ for (const contract of [
   if (!contract[1].test(screenWake)) {
     fail(`screen wake contract missing: ${contract[0]}`);
   }
+}
+
+const connectivityStatus = read('src/connectivity-status.js');
+for (const contract of [
+  ['dedicated status target', /querySelector\(["']#connection-status["']\)/],
+  ['online-state detection', /navigator\.onLine/],
+  ['offline-ready detection', /serviceWorker\.controller/],
+  ['online lifecycle', /addEventListener\(["']online["']/],
+  ['offline lifecycle', /addEventListener\(["']offline["']/],
+  ['service-worker lifecycle', /addEventListener\(["']controllerchange["']/],
+]) {
+  if (!contract[1].test(connectivityStatus)) {
+    fail(`connectivity status contract missing: ${contract[0]}`);
+  }
+}
+if (/ChessGame|makeMove|getLegalMoves/.test(connectivityStatus)) {
+  fail('connectivity status must remain presentation-only');
 }
 
 if (!process.exitCode) {
