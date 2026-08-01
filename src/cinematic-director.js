@@ -9,6 +9,8 @@
   let lastMoveKey = "";
   let lastPieceCount = 32;
   let terminalAnnounced = false;
+  let terminalStartedAt = 0;
+  let victoryReleaseTimer = 0;
   let syncQueued = false;
 
   function armAudio() {
@@ -66,6 +68,33 @@
     requestAnimationFrame(sync);
   }
 
+  function holdVictoryReveal() {
+    if (!terminalAnnounced || !victory.classList.contains("show")) return;
+    const minimumImpactTime = 880;
+    const remaining = minimumImpactTime - (performance.now() - terminalStartedAt);
+    if (remaining <= 0 || victoryReleaseTimer) return;
+
+    victory.classList.remove("show");
+    victoryReleaseTimer = window.setTimeout(() => {
+      victoryReleaseTimer = 0;
+      if (terminalAnnounced) {
+        document.body.dataset.cinematicPhase = "reveal";
+        victory.classList.add("show");
+      }
+    }, remaining);
+  }
+
+  function resetTerminalPresentation() {
+    terminalAnnounced = false;
+    terminalStartedAt = 0;
+    document.body.classList.remove("terminal-strike");
+    document.body.dataset.cinematicPhase = "play";
+    if (victoryReleaseTimer) {
+      window.clearTimeout(victoryReleaseTimer);
+      victoryReleaseTimer = 0;
+    }
+  }
+
   function sync() {
     syncQueued = false;
 
@@ -97,13 +126,16 @@
 
     if (terminal && !terminalAnnounced) {
       terminalAnnounced = true;
+      terminalStartedAt = performance.now();
       document.body.classList.add("terminal-strike");
+      document.body.dataset.cinematicPhase = "impact";
       playTerminal();
       vibrate([35, 45, 55, 45, 80]);
-    } else if (!terminal) {
-      terminalAnnounced = false;
-      document.body.classList.remove("terminal-strike");
+    } else if (!terminal && terminalAnnounced) {
+      resetTerminalPresentation();
     }
+
+    holdVictoryReveal();
   }
 
   const observer = new MutationObserver(scheduleSync);
@@ -117,5 +149,6 @@
     }
   });
 
+  document.body.dataset.cinematicPhase = "play";
   scheduleSync();
 })();
