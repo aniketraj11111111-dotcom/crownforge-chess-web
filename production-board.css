@@ -1,27 +1,56 @@
-/* Crownforge production board geometry v28
- * One immutable square board. The DOM grid is the input/accessibility layer;
- * the WebGL canvas is the visual layer. Both always share the same box.
+/* Crownforge production board geometry v29
+ * The DOM grid remains the input/accessibility layer and the existing WebGL
+ * canvas remains the visual layer. This file only locks viewport and geometry.
  */
+
 html,
 body {
-  overscroll-behavior: none !important;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-x: clip;
+  overscroll-behavior-x: none !important;
+}
+
+@supports not (overflow: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}
+
+body,
+.app-shell,
+.game-layout,
+.board-stage,
+.board,
+aside {
+  min-inline-size: 0 !important;
+}
+
+.app-shell,
+.game-layout,
+aside {
+  max-inline-size: 100% !important;
 }
 
 .game-layout {
   align-items: start !important;
+  overflow: clip !important;
+  overscroll-behavior-x: none !important;
 }
 
 .board-stage {
   position: relative !important;
   display: block !important;
+  box-sizing: border-box !important;
   inline-size: 100% !important;
   max-inline-size: 100% !important;
-  min-inline-size: 0 !important;
   padding: clamp(10px, 1.35vw, 16px) !important;
   overflow: hidden !important;
   contain: layout paint style !important;
   touch-action: none !important;
-  overscroll-behavior: contain !important;
+  overscroll-behavior: none !important;
   transform: none !important;
   transition: none !important;
   animation: none !important;
@@ -41,12 +70,14 @@ body {
   display: grid !important;
   grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
   grid-template-rows: repeat(8, minmax(0, 1fr)) !important;
+  grid-auto-flow: row !important;
   grid-auto-columns: 0 !important;
   grid-auto-rows: 0 !important;
   gap: 0 !important;
   overflow: hidden !important;
   contain: layout paint style !important;
   touch-action: none !important;
+  overscroll-behavior: none !important;
   transform: none !important;
   transform-origin: center !important;
   transition: none !important;
@@ -62,7 +93,8 @@ body {
   max-block-size: none !important;
   aspect-ratio: auto !important;
   overflow: hidden !important;
-  touch-action: manipulation !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
   transform: none !important;
   transition: none !important;
   animation: none !important;
@@ -99,35 +131,61 @@ body {
   }
 }
 
-@media (pointer: coarse) and (orientation: landscape) {
+/*
+ * Use the stable viewport height unit. Browser chrome changes must not resize
+ * the first grid column while the user touches the page on Android tablets.
+ */
+@media (pointer: coarse) and (orientation: landscape) and (min-width: 821px) {
   .app-shell {
     inline-size: 100% !important;
     max-inline-size: none !important;
     padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+    overflow-x: clip !important;
   }
 
   .game-layout {
-    grid-template-columns: minmax(0, min(72vw, 92dvh)) minmax(260px, 1fr) !important;
-    gap: clamp(12px, 1.5vw, 20px) !important;
+    --crownforge-gap: clamp(12px, 1.4vw, 18px);
+    --crownforge-sidebar: clamp(250px, 24vw, 360px);
+    --crownforge-board: min(
+      calc(100svh - 28px),
+      calc(100% - var(--crownforge-sidebar) - var(--crownforge-gap))
+    );
+    display: grid !important;
+    grid-template-columns: minmax(0, var(--crownforge-board)) minmax(0, 1fr) !important;
+    gap: var(--crownforge-gap) !important;
+    inline-size: 100% !important;
+    overflow: hidden !important;
   }
 
   .board-stage {
-    inline-size: min(72vw, 92dvh) !important;
+    inline-size: var(--crownforge-board) !important;
+    block-size: var(--crownforge-board) !important;
     max-inline-size: 100% !important;
+    justify-self: start !important;
+  }
+
+  .board,
+  .board[data-geometry-locked="true"] {
+    inline-size: 100% !important;
+    block-size: 100% !important;
   }
 
   aside {
-    min-inline-size: 0 !important;
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    overflow-x: hidden !important;
   }
 }
 
 @media (pointer: coarse) and (orientation: portrait), (max-width: 820px) {
   .game-layout {
     grid-template-columns: minmax(0, 1fr) !important;
+    inline-size: 100% !important;
   }
 
   .board-stage {
     inline-size: 100% !important;
+    block-size: auto !important;
     max-inline-size: 100% !important;
   }
 }

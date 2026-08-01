@@ -1,4 +1,4 @@
-name: Crownforge verified cinematic release
+name: Crownforge verified release
 
 on:
   push:
@@ -11,12 +11,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: crownforge-pages
+  group: crownforge-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify-and-deploy:
-    name: Verify stable game and deploy
+    name: Verify rules, stable UI, offline PWA and deploy
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -38,20 +38,20 @@ jobs:
           test -f CrownforgeChess_WebCheckpoint1/dist/src/engine.js
           test -f CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
 
-      - name: Verify source syntax and chess rules
+      - name: Verify source syntax and complete chess rules suite
         shell: bash
         run: |
           set -euo pipefail
-          for file in src/*.js service-worker.js; do
-            node --check "$file"
-          done
+          find src -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check service-worker.js
+          node --check .github/scripts/verify-release.mjs
           node CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
           node --input-type=module <<'NODE'
           import { ChessGame, Side } from './CrownforgeChess_WebCheckpoint1/dist/src/engine.js';
           const game = new ChessGame();
           if (game.position.sideToMove !== Side.White) throw new Error('Initial side-to-move must be White');
           if (game.getLegalMoves().length !== 20) throw new Error('Initial legal-move count must be 20');
-          console.log('Stable engine smoke gate passed.');
+          console.log('Verified engine smoke gate passed.');
           NODE
 
       - name: Build self-contained playable PWA
@@ -66,23 +66,19 @@ jobs:
           cp -R src/. site/src/
           cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js site/src/engine-stable.js
 
-          test -f site/index.html
-          test -f site/src/app-stable.js
-          test -f site/src/engine-stable.js
-          test -f site/src/board3d.js
-          test -f site/src/board3d-meshes.js
-          test -f site/service-worker.js
-
-          for file in site/src/*.js site/service-worker.js; do
-            node --check "$file"
-          done
-
+      - name: Verify final release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          find site/src -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check site/service-worker.js
+          node .github/scripts/verify-release.mjs site
           node --input-type=module <<'NODE'
           import { ChessGame, Side } from './site/src/engine-stable.js';
           const game = new ChessGame();
           if (game.position.sideToMove !== Side.White) throw new Error('Deployed side-to-move gate failed');
           if (game.getLegalMoves().length !== 20) throw new Error('Deployed legal-move gate failed');
-          console.log('Deploy package smoke gate passed.');
+          console.log('Final deployment package gate passed.');
           NODE
 
       - name: Configure GitHub Pages
