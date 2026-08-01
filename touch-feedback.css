@@ -1,0 +1,21 @@
+/* Presentation-only press feedback. Board geometry and engine state remain untouched. */
+.square[data-pressed="true"] {
+  filter: brightness(1.08) saturate(1.05);
+}
+
+.square[data-pressed="true"] .piece {
+  transform: translateY(1.5%) scale(0.965);
+  transition-duration: 45ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .square:hover:not([data-pressed="true"]) {
+    filter: brightness(1.035);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .square[data-pressed="true"] .piece {
+    transform: none;
+  }
+}
