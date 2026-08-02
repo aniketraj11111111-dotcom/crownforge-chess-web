@@ -20,6 +20,7 @@ for (const [name, pattern] of [
   ['music ducking', /function\s+duckMusic\s*\(/],
   ['checkmate cinematic', /function\s+playCheckmateCue\s*\(/],
   ['draw resolution', /function\s+playDrawCue\s*\(/],
+  ['history navigation cue', /function\s+playHistoryCue\s*\(/],
   ['visibility lifecycle', /visibilitychange/],
   ['Android retry prompt', /Tap for Sound/],
   ['versioned mute-state recovery', /crownforge\.soundtrack\.enabled\.v2/],
@@ -34,7 +35,7 @@ for (const piece of ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King']) {
   }
 }
 
-for (const situation of ['Capture', 'EnPassant', 'Castle', 'Promotion', 'Check', 'Illegal', 'Checkmate', 'Draw']) {
+for (const situation of ['Capture', 'EnPassant', 'Castle', 'Promotion', 'Check', 'Illegal', 'History', 'Checkmate', 'Draw']) {
   if (!new RegExp(`function\\s+play${situation}Cue\\s*\\(`).test(soundtrack)) {
     fail(`situation cue is missing: ${situation}`);
   }
@@ -277,6 +278,26 @@ const move = async (overrides) => {
 for (const piece of ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king']) {
   await move({ piece });
 }
+
+const beforeHistory = voiceCount();
+emitWindow('crownforge:audio', {
+  detail: {
+    version: 1,
+    kind: 'history',
+    sequence: 2,
+    direction: 'back',
+    cursor: 2,
+    depth: sequence,
+    phase: 'opening',
+    intensity: 0.2,
+  },
+});
+await waitForAudio();
+assert(voiceCount() - beforeHistory >= 4, 'history-navigation cue is incomplete');
+sequence = 2;
+await move({ piece: 'bishop', from: 'f1', to: 'c4' });
+assert(sequence === 3, 'branched move sequence did not resume from the history cursor');
+
 assert(await move({ piece: 'king', from: 'e1', to: 'g1', castle: 'king-side' }) >= 6, 'castling cue is incomplete');
 assert(await move({ capture: true }) >= 4, 'capture layering is incomplete');
 assert(await move({ capture: true, enPassant: true }) >= 6, 'en-passant layering is incomplete');
@@ -328,6 +349,6 @@ assert(contexts[0].state === 'running' && contexts.length === 1, 'visibility res
 
 const decibelIncrease = 20 * Math.log10(masterGain / 0.11);
 console.log(
-  `The Living Crown verification passed: one AudioContext, six piece identities, eight situation cues, ` +
+  `The Living Crown verification passed: one AudioContext, six piece identities, nine situation cues, ` +
   `${voiceCount()} scheduled voices and +${decibelIncrease.toFixed(1)} dB master increase with limiter protection.`,
 );
