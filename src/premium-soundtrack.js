@@ -820,6 +820,29 @@
     });
   }
 
+  function playHistoryCue(detail, start) {
+    const forward = detail.direction === "forward";
+    const notes = forward ? [329.63, 493.88, 659.26] : [659.26, 493.88, 329.63];
+
+    notes.forEach((frequency, index) => {
+      cueTone(frequency, start + index * 0.07, 0.46 + index * 0.06, 0.086, {
+        type: "sine",
+        attack: 0.012,
+        release: 0.35 + index * 0.05,
+        filterFrequency: 3900,
+        pan: forward ? -0.14 + index * 0.14 : 0.14 - index * 0.14,
+      });
+    });
+    cueTone(forward ? 123.47 : 146.83, start, 0.5, 0.074, {
+      warm: true,
+      attack: 0.02,
+      release: 0.39,
+      endFrequency: forward ? 164.81 : 98,
+      filterFrequency: 820,
+    });
+    duckMusic(0.76, 0.2, 0.62);
+  }
+
   function playCheckmateCue(detail, start) {
     const winnerRatio = detail.winner === "white" ? 1.045 : 0.955;
     applyIntensity(1, 0.32);
@@ -961,6 +984,15 @@
 
       if (detail.kind === "illegal") {
         playIllegalCue(audioContext.currentTime + 0.012);
+        return;
+      }
+
+      if (detail.kind === "history") {
+        stopActiveCues();
+        if (Number.isInteger(detail.sequence) && detail.sequence >= 0) {
+          lastMoveSequence = detail.sequence;
+        }
+        playHistoryCue(detail, audioContext.currentTime + 0.012);
         return;
       }
 
