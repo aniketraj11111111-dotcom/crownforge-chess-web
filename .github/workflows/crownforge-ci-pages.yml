@@ -37,6 +37,7 @@ jobs:
           unzip -q crownforge-checkpoint.zip
           test -f CrownforgeChess_WebCheckpoint1/dist/src/engine.js
           test -f CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
+          cp CrownforgeChess_WebCheckpoint1/dist/src/engine.js src/engine-stable.js
 
       - name: Verify source syntax and complete chess rules suite
         shell: bash
@@ -46,8 +47,10 @@ jobs:
           node --check service-worker.js
           node --check .github/scripts/verify-release.mjs
           node --check .github/scripts/verify-living-crown.mjs
+          node --check .github/scripts/verify-history-navigation.mjs
           node .github/scripts/verify-3d-renderer.mjs
           node .github/scripts/verify-living-crown.mjs
+          node .github/scripts/verify-history-navigation.mjs
           node CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
           node --input-type=module <<'NODE'
           import { ChessGame, Side } from './CrownforgeChess_WebCheckpoint1/dist/src/engine.js';

@@ -14,6 +14,7 @@ const required = [
   'manifest.webmanifest',
   'service-worker.js',
   'styles.css',
+  'history-controls.css',
   'production-board.css',
   'board-geometry-lock.css',
   'webgl-phase2.css',
@@ -27,6 +28,7 @@ const required = [
   'turn-guidance.css',
   'premium-phase1.css',
   'src/app-stable.js',
+  'src/session-state.js',
   'src/engine-stable.js',
   'src/board3d.js',
   'src/board3d-meshes.js',
@@ -56,14 +58,16 @@ if (errors.length === 0) {
 
   const versions = [...index.matchAll(/[?&]v=(\d+)/g)].map((match) => match[1]);
   const uniqueVersions = new Set(versions);
-  if (uniqueVersions.size !== 1 || !uniqueVersions.has('30')) {
-    fail(`index asset versions must all be v30; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
+  if (uniqueVersions.size !== 1 || !uniqueVersions.has('31')) {
+    fail(`index asset versions must all be v31; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
   }
 
   for (const id of [
     'board', 'board-3d', 'status', 'substatus', 'history', 'restart',
     'claim-draw', 'promotion-dialog', 'victory', 'rematch',
     'connection-status', 'soundtrack-toggle', 'fullscreen-app', 'install-app',
+    'timeline-controls', 'undo-move', 'redo-move', 'history-position',
+    'history-depth', 'undo-terminal',
   ]) {
     if (!new RegExp(`id=["']${id}["']`).test(index)) fail(`required UI id is missing: ${id}`);
   }
@@ -91,6 +95,9 @@ if (errors.length === 0) {
     ['promotion handling', /MoveFlags\.Promotion/],
     ['terminal handling', /GameStatus\.Checkmate/],
     ['legal moves from engine', /getLegalMoves\s*\(/],
+    ['authoritative history rebuild', /function\s+rebuildAuthoritativeGame[\s\S]*new\s+ChessGame\s*\(/],
+    ['history replay transition', /rebuiltGame\.play\(replayMove\)/],
+    ['forward branch replacement', /moveTimeline\.slice\(0,\s*historyCursor\)/],
   ]) {
     if (!contract[1].test(app)) fail(`gameplay contract missing: ${contract[0]}`);
   }
@@ -101,6 +108,13 @@ if (errors.length === 0) {
     fail('presentation renderer attempted to own chess state');
   }
 
+  const session = read('src/session-state.js');
+  if (!/SESSION_SCHEMA_VERSION\s*=\s*2/.test(session) ||
+      !/LEGACY_SESSION_SCHEMA_VERSION\s*=\s*1/.test(session) ||
+      !/timelineCursor/.test(session)) {
+    fail('versioned unlimited-history session contract is incomplete');
+  }
+
   const soundtrack = read('src/premium-soundtrack.js');
   if (!/createDynamicsCompressor\s*\(/.test(soundtrack) ||
       !/createWaveShaper\s*\(/.test(soundtrack) ||
@@ -109,6 +123,9 @@ if (errors.length === 0) {
   }
   if (!/The Living Crown/.test(soundtrack) || !/crownforge:audio/.test(soundtrack)) {
     fail('adaptive Living Crown score contract is missing');
+  }
+  if (!/function\s+playHistoryCue\s*\(/.test(soundtrack)) {
+    fail('Living Crown history-navigation cue is missing');
   }
   if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(soundtrack)) {
     fail('premium soundtrack attempted to own chess state');
@@ -127,16 +144,17 @@ if (errors.length === 0) {
   }
 
   const worker = read('service-worker.js');
-  if (!/crownforge-v30-living-crown/.test(worker)) fail('service-worker cache is not the Living Crown v30 shell');
+  if (!/crownforge-v31-unlimited-history/.test(worker)) fail('service-worker cache is not the v31 history shell');
   for (const asset of [
     './index.html',
-    './production-board.css?v=30',
-    './src/app-stable.js?v=30',
-    './src/board3d.js?v=30',
-    './src/premium-soundtrack.js?v=30',
-    './premium-soundtrack.css?v=30',
+    './history-controls.css?v=31',
+    './production-board.css?v=31',
+    './src/app-stable.js?v=31',
+    './src/board3d.js?v=31',
+    './src/premium-soundtrack.js?v=31',
+    './premium-soundtrack.css?v=31',
     './src/engine-stable.js',
-    './manifest.webmanifest?v=30',
+    './manifest.webmanifest?v=31',
   ]) {
     if (!worker.includes(JSON.stringify(asset))) fail(`offline shell is missing: ${asset}`);
   }
@@ -168,4 +186,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log('Crownforge release verification passed: stable viewport, gameplay, PWA and WebGL contracts.');
+console.log('Crownforge release verification passed: authoritative history, stable viewport, gameplay, PWA and WebGL contracts.');

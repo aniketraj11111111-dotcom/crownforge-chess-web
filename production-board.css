@@ -1,4 +1,4 @@
-/* Crownforge production board geometry v30
+/* Crownforge production board geometry v31
  * The DOM grid remains the input/accessibility layer and the existing WebGL
  * canvas remains the visual layer. This file only locks viewport and geometry.
  */
@@ -22,6 +22,7 @@ body {
 body,
 .app-shell,
 .game-layout,
+.board-column,
 .board-stage,
 .board,
 aside {
@@ -30,6 +31,7 @@ aside {
 
 .app-shell,
 .game-layout,
+.board-column,
 aside {
   max-inline-size: 100% !important;
 }
@@ -164,6 +166,12 @@ aside {
     justify-self: start !important;
   }
 
+  .board-column {
+    inline-size: var(--crownforge-board) !important;
+    max-inline-size: 100% !important;
+    justify-self: start !important;
+  }
+
   .board,
   .board[data-geometry-locked="true"] {
     inline-size: 100% !important;
@@ -186,6 +194,10 @@ aside {
   .board-stage {
     inline-size: 100% !important;
     block-size: auto !important;
+    max-inline-size: 100% !important;
+  }
+  .board-column {
+    inline-size: 100% !important;
     max-inline-size: 100% !important;
   }
 }

@@ -14,7 +14,9 @@ for (const file of [
   'index.html',
   'manifest.webmanifest',
   'service-worker.js',
+  'history-controls.css',
   'src/app-stable.js',
+  'src/session-state.js',
   'src/engine-stable.js',
   'src/keyboard-nav.js',
   'src/promotion-focus.js',
@@ -87,6 +89,9 @@ for (const contract of [
   ['fixed white orientation', /dataset\.orientation\s*=\s*["']white["']/],
   ['terminal outcome guard', /game\.outcome\.isTerminal/],
   ['legal-move source', /getLegalMoves\s*\(/],
+  ['authoritative history rebuild', /function\s+rebuildAuthoritativeGame[\s\S]*new\s+ChessGame\s*\(/],
+  ['history replay through engine', /rebuiltGame\.play\(replayMove\)/],
+  ['future branch replacement', /moveTimeline\.slice\(0,\s*historyCursor\)/],
 ]) {
   if (!contract[1].test(app)) fail(`app contract missing: ${contract[0]}`);
 }
@@ -219,6 +224,7 @@ for (const contract of [
   ['original score identity', /The Living Crown/],
   ['checkmate cinematic score', /playCheckmateCue/],
   ['draw resolution', /playDrawCue/],
+  ['history navigation cue', /playHistoryCue/],
 ]) {
   if (!contract[1].test(premiumSoundtrack)) {
     fail(`premium soundtrack contract missing: ${contract[0]}`);
@@ -243,6 +249,16 @@ const feedback = read('src/feedback.js');
 const cinematicDirector = read('src/cinematic-director.js');
 if (/AudioContext|createOscillator/.test(feedback) || /AudioContext|createOscillator/.test(cinematicDirector)) {
   fail('legacy presentation modules must not create duplicate audio contexts');
+}
+
+const sessionState = read('src/session-state.js');
+for (const contract of [
+  ['history schema v2', /SESSION_SCHEMA_VERSION\s*=\s*2/],
+  ['legacy schema migration', /LEGACY_SESSION_SCHEMA_VERSION\s*=\s*1/],
+  ['timeline cursor validation', /cursor\s*>\s*payload\.moves\.length/],
+  ['legal full-timeline replay', /fullTimelineGame\.getLegalMoves\s*\(\)/],
+]) {
+  if (!contract[1].test(sessionState)) fail(`session history contract missing: ${contract[0]}`);
 }
 
 if (!process.exitCode) {

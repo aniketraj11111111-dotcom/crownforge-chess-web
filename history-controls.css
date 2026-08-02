@@ -1,0 +1,230 @@
+/* Crownforge v31 move-history controls.
+ * Presentation only: engine-authoritative replay remains in app-stable.js.
+ */
+
+.board-column {
+  display: grid;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  gap: clamp(9px, 1.2vw, 14px);
+}
+
+.timeline-controls {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(78px, .62fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: clamp(6px, 1vw, 10px);
+  padding: clamp(8px, 1.15vw, 12px);
+  overflow: hidden;
+  border: 1px solid rgba(244, 216, 145, .3);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% -65%, rgba(255, 222, 137, .2), transparent 58%),
+    linear-gradient(145deg, rgba(89, 58, 30, .84), rgba(18, 14, 12, .96) 56%, rgba(7, 8, 11, .98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .12),
+    inset 0 -10px 24px rgba(0, 0, 0, .32),
+    0 16px 38px rgba(0, 0, 0, .4),
+    0 0 0 1px rgba(0, 0, 0, .7);
+}
+
+.timeline-controls::before,
+.timeline-controls::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.timeline-controls::before {
+  inset: 1px;
+  z-index: -1;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 235, 181, .09);
+}
+
+.timeline-controls::after {
+  top: 0;
+  bottom: 0;
+  width: 34%;
+  left: -44%;
+  opacity: 0;
+  transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 227, 157, .22), transparent);
+}
+
+.timeline-controls[data-action="back"]::after {
+  animation: crown-history-back 420ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.timeline-controls[data-action="forward"]::after {
+  animation: crown-history-forward 420ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.timeline-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(5px, .8vw, 9px);
+  min-inline-size: 0;
+  min-block-size: 54px;
+  padding: 10px clamp(8px, 1.4vw, 16px);
+  border: 1px solid rgba(244, 216, 145, .42);
+  border-radius: 13px;
+  color: #fff0c4;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .1), transparent 36%),
+    linear-gradient(145deg, #5e3d20, #261a11 62%, #100d0b);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    inset 0 -9px 18px rgba(0, 0, 0, .25),
+    0 8px 20px rgba(0, 0, 0, .3);
+  font-size: clamp(10px, 1.4vw, 12px);
+  font-weight: 950;
+  letter-spacing: .12em;
+  text-shadow: 0 1px 0 #000, 0 0 12px rgba(255, 216, 125, .16);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 150ms ease, filter 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.timeline-button svg {
+  inline-size: clamp(22px, 3vw, 28px);
+  block-size: clamp(22px, 3vw, 28px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .45));
+  transition: transform 180ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.timeline-button:not(:disabled):hover,
+.timeline-button:not(:disabled):focus-visible {
+  border-color: rgba(255, 228, 156, .75);
+  filter: brightness(1.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .2),
+    inset 0 -9px 18px rgba(0, 0, 0, .2),
+    0 9px 24px rgba(0, 0, 0, .34),
+    0 0 18px rgba(216, 178, 100, .13);
+}
+
+.timeline-button:focus-visible {
+  outline: 3px solid #fff2b0;
+  outline-offset: 2px;
+}
+
+.timeline-button:not(:disabled):active {
+  transform: translateY(2px) scale(.985);
+  filter: brightness(1.16);
+  box-shadow: inset 0 5px 13px rgba(0, 0, 0, .35), 0 3px 8px rgba(0, 0, 0, .28);
+}
+
+.timeline-back:not(:disabled):active svg {
+  transform: translateX(-3px);
+}
+
+.timeline-forward:not(:disabled):active svg {
+  transform: translateX(3px);
+}
+
+.timeline-button:disabled {
+  color: rgba(220, 207, 178, .34);
+  border-color: rgba(255, 255, 255, .09);
+  background: linear-gradient(145deg, rgba(54, 46, 39, .62), rgba(14, 13, 13, .86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
+  cursor: not-allowed;
+}
+
+.timeline-position {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  min-inline-size: 0;
+  border-inline: 1px solid rgba(244, 216, 145, .14);
+  color: #f1d48d;
+  text-shadow: 0 0 16px rgba(216, 178, 100, .2);
+}
+
+.timeline-position strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(11px, 1.7vw, 14px);
+  letter-spacing: .11em;
+  white-space: nowrap;
+}
+
+.timeline-position small {
+  margin-top: 3px;
+  color: rgba(235, 225, 205, .55);
+  font: 800 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .06em;
+}
+
+.victory-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.victory-actions button {
+  min-inline-size: 132px;
+}
+
+.victory-actions #undo-terminal {
+  border-color: rgba(255, 230, 161, .48);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .1), transparent 38%),
+    linear-gradient(145deg, #624223, #21150e 70%);
+}
+
+@keyframes crown-history-back {
+  0% { left: 110%; opacity: 0; }
+  20% { opacity: 1; }
+  100% { left: -44%; opacity: 0; }
+}
+
+@keyframes crown-history-forward {
+  0% { left: -44%; opacity: 0; }
+  20% { opacity: 1; }
+  100% { left: 110%; opacity: 0; }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (min-width: 821px) {
+  .board-column {
+    inline-size: var(--crownforge-board);
+    max-inline-size: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .timeline-controls {
+    grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr);
+    border-radius: 15px;
+  }
+
+  .timeline-button {
+    min-block-size: 50px;
+    padding-inline: 7px;
+    letter-spacing: .07em;
+  }
+
+  .timeline-button svg {
+    inline-size: 21px;
+    block-size: 21px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-controls::after,
+  .timeline-button,
+  .timeline-button svg {
+    animation: none !important;
+    transition: none !important;
+  }
+}

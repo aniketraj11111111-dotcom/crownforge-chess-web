@@ -47,6 +47,7 @@ jobs:
           node --check src/premium-soundtrack.js
           node --check src/cinematic-director.js
           node --check .github/scripts/verify-living-crown.mjs
+          node --check .github/scripts/verify-history-navigation.mjs
 
       - name: Verify offline app-shell integrity
         run: node .github/scripts/verify-pwa-integrity.mjs
@@ -56,3 +57,6 @@ jobs:
 
       - name: Verify adaptive Living Crown audio contracts
         run: node .github/scripts/verify-living-crown.mjs
+
+      - name: Verify unlimited engine-authoritative move history
+        run: node .github/scripts/verify-history-navigation.mjs
