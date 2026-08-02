@@ -8,7 +8,13 @@ import {
   rotateY,
   boardProjection,
   normal3,
-} from "./board3d-meshes.js?v=30";
+} from "./board3d-meshes.js?v=32";
+import {
+  CROWNFORGE_VISUAL_CONTRACT,
+  boardPalette,
+  piecePalette,
+  piecePartPalette,
+} from "./board3d-materials.js?v=32";
 
 const canvas = document.querySelector("#board-3d");
 const board = document.querySelector("#board");
@@ -134,18 +140,30 @@ void main(){
   }
 
   vec3 albedo=base;
-  if(material>0.5 && material<3.5){
-    float longGrain=sin(vP.x*54.0+sin(vP.y*2.8)*2.2);
-    float fineGrain=sin(vP.x*137.0+vP.y*9.0);
-    float pores=hash21(floor(vP.xy*48.0));
-    float grain=longGrain*.028+fineGrain*.009+(pores-.5)*.014;
-    albedo*=1.0+grain;
+  if(material>0.5 && material<2.5){
+    vec2 cell=floor(vP.xy+vec2(4.0));
+    vec2 local=fract(vP.xy+vec2(4.0))-.5;
+    float seed=hash21(cell+vec2(17.13,9.71));
+    float turn=step(.5,hash21(cell+vec2(2.3,31.7)));
+    vec2 grainUv=mix(local,local.yx,turn);
+    float cathedral=sin((grainUv.x+sin(grainUv.y*4.2+seed*6.283)*.075)*48.0);
+    float ribbon=sin(grainUv.x*126.0+grainUv.y*8.0+seed*11.0);
+    float pores=hash21(floor((grainUv+seed)*vec2(76.0,53.0)));
+    float grain=cathedral*.034+ribbon*.011+(pores-.5)*.013;
+    float boardVariation=(seed-.5)*(material<1.5 ? .075 : .105);
+    albedo*=1.0+grain+boardVariation;
+  }else if(material>2.5 && material<3.5){
+    float frameWarp=sin(vP.y*3.1+sin(vP.x*.8)*1.6);
+    float frameGrain=sin(vP.x*39.0+frameWarp)*.036+sin(vP.x*111.0+vP.y*5.0)*.009;
+    albedo*=1.0+frameGrain;
   }else if(material>5.5 && material<6.5){
     float ivoryVein=sin((vLocal.y+vLocal.x*.24-vLocal.z*.18)*83.0);
     albedo*=1.0+ivoryVein*.012;
   }else if(material>6.5 && material<7.5){
-    float ebonyVein=sin((vLocal.y+vLocal.z*.28)*96.0);
-    albedo+=vec3(.008,.004,.002)*(ebonyVein*.5+.5);
+    float ebonyVein=sin((vLocal.y+vLocal.z*.28+sin(vLocal.x*9.0)*.018)*82.0);
+    float ebonyPore=hash21(floor((vLocal.xz+vec2(1.7))*72.0));
+    albedo+=vec3(.014,.006,.0022)*(ebonyVein*.5+.5);
+    albedo*=.985+(ebonyPore-.5)*.025;
   }
 
   vec3 Nn=normalize(vN);
@@ -155,10 +173,21 @@ void main(){
   vec3 rim=normalize(vec3(-.18,.86,.42));
   float r=clamp(roughness,.075,.92);
 
-  vec3 color=albedo*(.16+.12*max(Nn.z,0.0));
-  color+=evaluateLight(Nn,V,key,vec3(2.75,2.3,1.72),albedo,r,metallic);
-  color+=evaluateLight(Nn,V,fill,vec3(.48,.58,.78),albedo,min(.98,r+.1),metallic);
-  color+=evaluateLight(Nn,V,rim,vec3(.58,.34,.18),albedo,min(.98,r+.18),metallic);
+  float skyFacing=clamp(Nn.z*.5+.5,0.0,1.0);
+  float wrappedFill=clamp(dot(Nn,fill)*.45+.55,0.0,1.0);
+  vec3 environment=mix(vec3(.075,.06,.055),vec3(.24,.205,.165),skyFacing);
+  vec3 color=albedo*(.19+.15*max(Nn.z,0.0))+albedo*environment*.34;
+  color+=albedo*wrappedFill*.075;
+  color+=evaluateLight(Nn,V,key,vec3(2.68,2.27,1.76),albedo,r,metallic);
+  color+=evaluateLight(Nn,V,fill,vec3(.82,.91,1.08),albedo,min(.98,r+.085),metallic);
+  color+=evaluateLight(Nn,V,rim,vec3(1.04,.61,.3),albedo,min(.98,r+.14),metallic);
+
+  if(material>6.5 && material<7.5){
+    float ebonyRim=pow(1.0-max(dot(Nn,V),0.0),2.15);
+    float shoulder=max(dot(Nn,normalize(vec3(.72,-.18,.82))),0.0);
+    color+=vec3(.105,.052,.021)*ebonyRim*.72;
+    color+=albedo*shoulder*.24;
+  }
 
   if(material>5.5 && material<7.5){
     float grounding=.72+.28*smoothstep(.055,.58,vP.z);
@@ -192,15 +221,20 @@ void main(){
   const triangleBudget = meshes.metrics.triangles + boardMeshes.metrics.triangles;
   const pixelRatioCap = quality === "high" ? 2 : 1.5;
 
-  canvas.dataset.renderer = "staunton-pbr-oblique";
+  canvas.dataset.renderer = "crownforge-v32-ebony-walnut";
   canvas.dataset.quality = quality;
   canvas.dataset.meshTriangles = String(triangleBudget);
+  canvas.dataset.blackMaterial = CROWNFORGE_VISUAL_CONTRACT.blackMaterial;
+  canvas.dataset.boardMaterial = CROWNFORGE_VISUAL_CONTRACT.boardMaterial;
   window.CROWNFORGE_3D_DIAGNOSTICS = Object.freeze({
-    renderer: "staunton-pbr-oblique",
+    renderer: "crownforge-v32-ebony-walnut",
     quality,
     uniqueMeshTriangles: triangleBudget,
     engineAuthoritative: true,
     hitGrid: "fixed-dom-64",
+    blackMaterial: CROWNFORGE_VISUAL_CONTRACT.blackMaterial,
+    boardMaterial: CROWNFORGE_VISUAL_CONTRACT.boardMaterial,
+    moveHighlightLayer: CROWNFORGE_VISUAL_CONTRACT.moveHighlightLayer,
   });
 
   let lastStateKey = "";
@@ -343,6 +377,7 @@ void main(){
     g.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
 
     drawBoard();
+    drawMoveHighlights(state);
     drawShadows(state, timestamp);
     drawPieces(state, timestamp);
 
@@ -356,6 +391,37 @@ void main(){
     for (const part of boardMeshes) {
       const palette = boardPalette(part.material);
       drawMeshPart(part, part.transform, palette);
+    }
+  }
+
+  function drawMoveHighlights(state) {
+    if (!state.lastMoveFrom || !state.lastMoveTo) return;
+
+    g.depthMask(false);
+    try {
+      for (const [square, destination] of [
+        [state.lastMoveFrom, false],
+        [state.lastMoveTo, true],
+      ]) {
+        const file = square.charCodeAt(0) - 97;
+        const rank = Number(square[1]) - 1;
+        const highlightTransform = translate(file - 3.5, rank - 3.5, 0);
+        const palette = destination
+          ? {
+              base: [.98, .68, .2], emission: [0, 0, 0], roughness: 1,
+              metallic: 0, alpha: .145, material: 4,
+            }
+          : {
+              base: [.74, .43, .105], emission: [0, 0, 0], roughness: 1,
+              metallic: 0, alpha: .09, material: 4,
+            };
+
+        for (const part of meshes.MoveTile) {
+          drawMeshPart(part, multiply(highlightTransform, part.transform), palette);
+        }
+      }
+    } finally {
+      g.depthMask(true);
     }
   }
 
@@ -520,89 +586,6 @@ void main(){
   });
 
   scheduleDraw();
-}
-
-function boardPalette(material) {
-  if (material === "light") {
-    return {
-      base: [.51, .28, .115], emission: [0, 0, 0], roughness: .31,
-      metallic: 0, alpha: 1, material: 1,
-    };
-  }
-  if (material === "dark") {
-    return {
-      base: [.105, .028, .009], emission: [0, 0, 0], roughness: .25,
-      metallic: 0, alpha: 1, material: 2,
-    };
-  }
-  if (material === "frame-inner") {
-    return {
-      base: [.075, .015, .004], emission: [0, 0, 0], roughness: .2,
-      metallic: 0, alpha: 1, material: 3,
-    };
-  }
-  if (material === "brass") {
-    return {
-      base: [.59, .29, .052], emission: [.018, .008, .001], roughness: .16,
-      metallic: .82, alpha: 1, material: 5,
-    };
-  }
-  return {
-    base: [.135, .034, .009], emission: [0, 0, 0], roughness: .19,
-    metallic: 0, alpha: 1, material: 3,
-  };
-}
-
-function piecePalette(side, checkedKing, emphasized, cinematic) {
-  const dim = cinematic ? .68 : 1;
-  if (side === "White") {
-    return {
-      base: [.79 * dim, .59 * dim, .34 * dim],
-      emission: checkedKing
-        ? [.34, .012, .004]
-        : emphasized ? [.095, .052, .012] : [0, 0, 0],
-      roughness: .2,
-      metallic: .03,
-      alpha: 1,
-      material: 6,
-    };
-  }
-  return {
-    base: [.028 * dim, .012 * dim, .0045 * dim],
-    emission: checkedKing
-      ? [.34, .009, .003]
-      : emphasized ? [.075, .035, .007] : [0, 0, 0],
-    roughness: .14,
-    metallic: .08,
-    alpha: 1,
-    material: 7,
-  };
-}
-
-function piecePartPalette(role, body) {
-  if (role === "accent") {
-    return {
-      base: [.6, .29, .05], emission: [.015, .006, .001], roughness: .14,
-      metallic: .86, alpha: 1, material: 5,
-    };
-  }
-  if (role === "eye" || role === "cut") {
-    return {
-      base: [.002, .0015, .001], emission: [0, 0, 0], roughness: .08,
-      metallic: .25, alpha: 1, material: 8,
-    };
-  }
-  if (role === "mane") {
-    return {
-      ...body,
-      base: body.base.map((value) => value * .74),
-      roughness: Math.min(1, body.roughness + .08),
-    };
-  }
-  if (role === "muzzle") {
-    return { ...body, roughness: Math.min(1, body.roughness + .06) };
-  }
-  return body;
 }
 
 function selectQualityTier() {

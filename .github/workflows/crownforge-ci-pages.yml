@@ -48,6 +48,7 @@ jobs:
           node --check .github/scripts/verify-release.mjs
           node --check .github/scripts/verify-living-crown.mjs
           node --check .github/scripts/verify-history-navigation.mjs
+          node --check src/board3d-materials.js
           node .github/scripts/verify-3d-renderer.mjs
           node .github/scripts/verify-living-crown.mjs
           node .github/scripts/verify-history-navigation.mjs

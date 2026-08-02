@@ -4,6 +4,13 @@ import {
   buildBoardMeshes,
   buildMeshes,
 } from '../../src/board3d-meshes.js';
+import {
+  CROWNFORGE_VISUAL_CONTRACT,
+  boardPalette,
+  linearLuminance,
+  piecePalette,
+  piecePartPalette,
+} from '../../src/board3d-materials.js';
 
 const errors = [];
 const fail = (message) => errors.push(message);
@@ -43,8 +50,12 @@ for (const piece of ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King']) {
 }
 
 if (!pieces.Knight.some((part) => part.role === 'eye')) fail('Knight eye detail mesh is missing');
+if (!pieces.Knight.some((part) => part.role === 'mane')) fail('Knight mane definition is missing');
 if (!pieces.Queen.some((part) => part.role === 'accent')) fail('Queen crown accent is missing');
 if (!pieces.King.some((part) => part.role === 'accent')) fail('King cross accent is missing');
+if (!pieces.Bishop.some((part) => part.role === 'cut')) fail('Bishop mitre definition is missing');
+if (!pieces.Rook.some((part) => part.role === 'battlement')) fail('Rook battlement definition is missing');
+if (!pieces.MoveTile?.some((part) => part.role === 'move-highlight')) fail('under-piece move highlight mesh is missing');
 
 if (pieces.metrics.triangles < 25_000) {
   fail(`piece mesh detail budget is unexpectedly low: ${pieces.metrics.triangles} triangles`);
@@ -52,8 +63,45 @@ if (pieces.metrics.triangles < 25_000) {
 if (pieces.metrics.triangles > 180_000) {
   fail(`piece mesh detail budget exceeds the mobile-safe ceiling: ${pieces.metrics.triangles} triangles`);
 }
+if (pieces.metrics.drawParts > 80) {
+  fail(`piece material-part budget exceeds the mobile-safe ceiling: ${pieces.metrics.drawParts}`);
+}
 if (board.length < 72) fail(`board mesh is incomplete: ${board.length} draw parts`);
+if (board.length > 100) fail(`board draw-part budget exceeds the mobile-safe ceiling: ${board.length}`);
 if (!board.some((part) => part.material === 'brass')) fail('board brass inlay is missing');
+if (!board.some((part) => part.material === 'brass-soft')) fail('secondary board inlay is missing');
+if (!board.some((part) => part.material === 'frame-bed')) fail('recessed board bed is missing');
+
+const white = piecePalette('White', false, false, false);
+const black = piecePalette('Black', false, false, false);
+const darkSquare = boardPalette('dark');
+const lightSquare = boardPalette('light');
+const blackLuminance = linearLuminance(black.base);
+const darkSquareLuminance = linearLuminance(darkSquare.base);
+
+if (CROWNFORGE_VISUAL_CONTRACT.blackMaterial !== 'royal-smoked-ebony') {
+  fail('smoked-ebony visual contract is missing');
+}
+if (!(blackLuminance >= .032 && blackLuminance <= .065)) {
+  fail(`black material is outside the readable ebony luminance window: ${blackLuminance}`);
+}
+if (!(darkSquareLuminance - blackLuminance >= .045)) {
+  fail('dark squares do not preserve enough luminance separation from black pieces');
+}
+if (!(black.roughness >= .25 && black.metallic <= .04 && black.alpha === 1)) {
+  fail('black material is not solid broad-highlight ebony');
+}
+if (!(linearLuminance(white.base) > linearLuminance(lightSquare.base))) {
+  fail('ivory pieces no longer separate from light squares');
+}
+const blackCut = piecePartPalette('cut', black);
+const blackMane = piecePartPalette('mane', black);
+if (!(linearLuminance(blackCut.base) > blackLuminance)) {
+  fail('black bishop mitre lacks readable material separation');
+}
+if (!(linearLuminance(blackMane.base) > blackLuminance)) {
+  fail('black knight mane lacks readable material separation');
+}
 
 for (const parts of [...Object.values(pieces).filter(Array.isArray), board]) {
   for (const part of parts) {
@@ -79,13 +127,20 @@ if (!(upright.y > grounded.y && upright.z < grounded.z)) {
 }
 
 const renderer = fs.readFileSync(new URL('../../src/board3d.js', import.meta.url), 'utf8');
+const webglStyles = fs.readFileSync(new URL('../../webgl-phase2.css', import.meta.url), 'utf8');
 for (const contract of [
   ['PBR microfacet lighting', /distributionGGX/],
+  ['procedural per-square wood grain', /vec2\s+cell=floor\(vP\.xy/],
+  ['smoked-ebony contour lighting', /float\s+ebonyRim=/],
   ['true upright piece transform', /rotateX\(Math\.PI\s*\/\s*2\)/],
   ['fixed DOM hit-grid declaration', /hitGrid:\s*["']fixed-dom-64["']/],
   ['mobile quality tier', /selectQualityTier/],
+  ['under-piece highlight order', /drawBoard\(\);\s*drawMoveHighlights\(state\);\s*drawShadows\(state,\s*timestamp\);\s*drawPieces\(state,\s*timestamp\);/],
 ]) {
   if (!contract[1].test(renderer)) fail(`renderer contract missing: ${contract[0]}`);
+}
+if (!/\.webgl-3d-ready\s+\.square\.last-to::before[\s\S]*background:\s*transparent\s*!important/.test(webglStyles)) {
+  fail('DOM last-move wash can still veil the solid WebGL piece');
 }
 if (/new\s+ChessGame|game\.play|applyLegalMove|generateLegalMoves/.test(renderer)) {
   fail('presentation renderer attempted to own chess state');
@@ -98,5 +153,6 @@ if (errors.length) {
 
 console.log(
   `Crownforge 3D renderer verification passed: ${pieces.metrics.triangles} unique piece triangles, ` +
-  `${board.metrics.triangles} board triangles, fixed 64-square hit-grid preserved.`,
+  `${board.metrics.triangles} board triangles, ${pieces.metrics.drawParts + board.metrics.drawParts} unique draw parts, ` +
+  `fixed 64-square hit-grid preserved.`,
 );

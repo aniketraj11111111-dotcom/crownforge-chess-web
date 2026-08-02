@@ -42,6 +42,7 @@ jobs:
           node --check src/app-stable.js
           node --check src/board3d.js
           node --check src/board3d-meshes.js
+          node --check src/board3d-materials.js
           node --check src/engine-stable.js
           node --check src/feedback.js
           node --check src/premium-soundtrack.js

@@ -42,8 +42,8 @@ export function buildMeshes(gl, quality = "high") {
   }
 
   result.Pawn.push(
-    withRole(torus(gl, .157, .022, radialSegments, 12, { y: .522 }), "body"),
-    withRole(sphere(gl, .158, sphereLongitude, sphereLatitude, { y: .681 }), "body"),
+    withRole(torus(gl, .16, .024, radialSegments, 12, { y: .522 }), "collar"),
+    withRole(sphere(gl, .164, sphereLongitude, sphereLatitude, { y: .687 }), "body"),
   );
 
   result.Rook.push(
@@ -51,36 +51,38 @@ export function buildMeshes(gl, quality = "high") {
       [0, .635], [.255, .635], [.27, .657], [.278, .72],
       [.294, .75], [.288, .785], [0, .79],
     ], radialSegments), "body"),
+    withRole(torus(gl, .267, .021, radialSegments, 12, { y: .754 }), "collar"),
     ...rookCrenellations(gl, 6),
   );
 
   result.Bishop.push(
-    withRole(torus(gl, .178, .025, radialSegments, 12, { y: .648 }), "body"),
+    withRole(torus(gl, .181, .026, radialSegments, 12, { y: .648 }), "collar"),
     withRole(sphere(gl, 1, sphereLongitude, sphereLatitude, {
-      y: .805, sy: .205, sx: .137, sz: .137,
+      y: .805, sy: .208, sx: .145, sz: .145,
     }), "body"),
     withRole(sphere(gl, .057, 20, 12, { y: .99 }), "body"),
-    withRole(box(gl, .034, .252, .175, {
+    withRole(box(gl, .041, .258, .18, {
       x: .031, y: .835, z: -.035, rz: -.39,
     }), "cut"),
   );
 
   result.Queen.push(
-    withRole(torus(gl, .19, .028, radialSegments, 12, { y: .778 }), "body"),
+    withRole(torus(gl, .194, .029, radialSegments, 12, { y: .778 }), "collar"),
     withRole(torus(gl, .168, .018, radialSegments, 10, { y: .827 }), "accent"),
     ...queenCrown(gl, .152, .848, 8, sphereLongitude),
     withRole(sphere(gl, .061, 22, 14, { y: .976 }), "accent"),
   );
 
   result.King.push(
-    withRole(torus(gl, .155, .026, radialSegments, 12, { y: .823 }), "body"),
+    withRole(torus(gl, .16, .027, radialSegments, 12, { y: .823 }), "collar"),
     withRole(sphere(gl, .075, 24, 16, { y: .893 }), "body"),
-    withRole(beveledBox(gl, .074, .25, .074, .014, { y: 1.035 }), "accent"),
-    withRole(beveledBox(gl, .266, .075, .075, .014, { y: 1.077 }), "accent"),
+    withRole(beveledBox(gl, .078, .264, .078, .015, { y: 1.041 }), "accent"),
+    withRole(beveledBox(gl, .282, .08, .08, .015, { y: 1.086 }), "accent"),
   );
 
   result.Knight = [
     withRole(lathe(gl, base, radialSegments), "body"),
+    withRole(torus(gl, .218, .022, radialSegments, 12, { y: .254 }), "collar"),
     withRole(loft(gl, [
       { y: .242, z: .02, rx: .218, rz: .2 },
       { y: .33, z: .018, rx: .205, rz: .185 },
@@ -99,14 +101,15 @@ export function buildMeshes(gl, quality = "high") {
     withRole(sphere(gl, 1, 24, 14, {
       y: .698, z: -.514, sx: .128, sy: .075, sz: .13,
     }), "muzzle"),
-    withRole(cone(gl, .068, .235, 18, { x: -.074, y: .93, z: -.15, rx: -.19, rz: .11 }), "body"),
-    withRole(cone(gl, .065, .224, 18, { x: .074, y: .925, z: -.145, rx: -.17, rz: -.11 }), "body"),
+    withRole(cone(gl, .071, .248, 18, { x: -.08, y: .93, z: -.15, rx: -.19, rz: .12 }), "body"),
+    withRole(cone(gl, .068, .238, 18, { x: .08, y: .925, z: -.145, rx: -.17, rz: -.12 }), "body"),
     ...knightMane(gl),
     withRole(sphere(gl, .024, 14, 10, { x: -.135, y: .84, z: -.376 }), "eye"),
     withRole(sphere(gl, .024, 14, 10, { x: .135, y: .84, z: -.376 }), "eye"),
   ];
 
   result.Shadow = [withRole(disc(gl, .39, quality === "high" ? 48 : 32), "shadow")];
+  result.MoveTile = [withRole(beveledBox(gl, .884, .884, .006, .0025, { z: .055 }), "move-highlight")];
 
   Object.defineProperty(result, "metrics", {
     enumerable: false,
@@ -121,14 +124,15 @@ export function buildBoardMeshes(gl, quality = "high") {
   parts.push(
     withMaterial(beveledBox(gl, 7.98, 7.98, .34, .085, { z: -.235 }), "frame"),
     withMaterial(beveledBox(gl, 7.82, 7.82, .18, .045, { z: -.075 }), "frame-inner"),
+    withMaterial(beveledBox(gl, 7.72, 7.72, .1, .025, { z: -.012 }), "frame-bed"),
   );
 
   for (let rank = 0; rank < 8; rank += 1) {
     for (let file = 0; file < 8; file += 1) {
-      parts.push(withMaterial(beveledBox(gl, .988, .988, .092, .018, {
+      parts.push(withMaterial(beveledBox(gl, .984, .984, .102, .022, {
         x: file - 3.5,
         y: rank - 3.5,
-        z: .006,
+        z: .001,
       }), (file + rank) % 2 ? "light" : "dark"));
     }
   }
@@ -143,6 +147,10 @@ export function buildBoardMeshes(gl, quality = "high") {
     withMaterial(box(gl, 7.77, .021, .018, { y: -3.884, z: .137 }), "brass"),
     withMaterial(box(gl, .021, 7.74, .018, { x: 3.884, z: .137 }), "brass"),
     withMaterial(box(gl, .021, 7.74, .018, { x: -3.884, z: .137 }), "brass"),
+    withMaterial(box(gl, 7.69, .014, .013, { y: 3.848, z: .142 }), "brass-soft"),
+    withMaterial(box(gl, 7.69, .014, .013, { y: -3.848, z: .142 }), "brass-soft"),
+    withMaterial(box(gl, .014, 7.69, .013, { x: 3.848, z: .142 }), "brass-soft"),
+    withMaterial(box(gl, .014, 7.69, .013, { x: -3.848, z: .142 }), "brass-soft"),
   );
 
   const studSegments = quality === "high" ? 18 : 12;
@@ -173,13 +181,13 @@ function rookCrenellations(gl, count) {
   const parts = [];
   for (let index = 0; index < count; index += 1) {
     const angle = index / count * TAU;
-    const radius = .205;
-    parts.push(withRole(beveledBox(gl, .205, .145, .145, .025, {
+    const radius = .222;
+    parts.push(withRole(beveledBox(gl, .184, .17, .132, .026, {
       x: Math.sin(angle) * radius,
-      y: .847,
+      y: .86,
       z: Math.cos(angle) * radius,
       ry: angle,
-    }), "body"));
+    }), "battlement"));
   }
   return parts;
 }

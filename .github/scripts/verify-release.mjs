@@ -32,6 +32,7 @@ const required = [
   'src/engine-stable.js',
   'src/board3d.js',
   'src/board3d-meshes.js',
+  'src/board3d-materials.js',
   'src/touch-feedback.js',
   'src/cinematic-director.js',
   'src/fullscreen-control.js',
@@ -58,8 +59,8 @@ if (errors.length === 0) {
 
   const versions = [...index.matchAll(/[?&]v=(\d+)/g)].map((match) => match[1]);
   const uniqueVersions = new Set(versions);
-  if (uniqueVersions.size !== 1 || !uniqueVersions.has('31')) {
-    fail(`index asset versions must all be v31; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
+  if (uniqueVersions.size !== 1 || !uniqueVersions.has('32')) {
+    fail(`index asset versions must all be v32; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
   }
 
   for (const id of [
@@ -144,17 +145,18 @@ if (errors.length === 0) {
   }
 
   const worker = read('service-worker.js');
-  if (!/crownforge-v31-unlimited-history/.test(worker)) fail('service-worker cache is not the v31 history shell');
+  if (!/crownforge-v32-premium-ebony-board/.test(worker)) fail('service-worker cache is not the v32 premium visual shell');
   for (const asset of [
     './index.html',
-    './history-controls.css?v=31',
-    './production-board.css?v=31',
-    './src/app-stable.js?v=31',
-    './src/board3d.js?v=31',
-    './src/premium-soundtrack.js?v=31',
-    './premium-soundtrack.css?v=31',
+    './history-controls.css?v=32',
+    './production-board.css?v=32',
+    './src/app-stable.js?v=32',
+    './src/board3d.js?v=32',
+    './src/board3d-materials.js?v=32',
+    './src/premium-soundtrack.js?v=32',
+    './premium-soundtrack.css?v=32',
     './src/engine-stable.js',
-    './manifest.webmanifest?v=31',
+    './manifest.webmanifest?v=32',
   ]) {
     if (!worker.includes(JSON.stringify(asset))) fail(`offline shell is missing: ${asset}`);
   }
