@@ -17,8 +17,11 @@ function classList(...initial) {
 function fakeWebGL2() {
   let draws = 0;
   let uploads = 0;
+  let currentDepthMask = true;
   const depthMasks = [];
+  const drawLog = [];
   const shaders = [];
+  const uniformValues = {};
 
   const gl = {
     ARRAY_BUFFER: 0x8892,
@@ -68,16 +71,28 @@ function fakeWebGL2() {
     viewport: () => {},
     clear: () => {},
     useProgram: () => {},
-    uniformMatrix4fv: () => {},
+    uniformMatrix4fv: (location, _transpose, value) => {
+      uniformValues[location.name] = [...value];
+    },
     uniformMatrix3fv: () => {},
-    uniform3fv: () => {},
-    uniform1f: () => {},
-    depthMask: (enabled) => depthMasks.push(enabled),
+    uniform3fv: (location, value) => { uniformValues[location.name] = [...value]; },
+    uniform1f: (location, value) => { uniformValues[location.name] = value; },
+    depthMask: (enabled) => {
+      currentDepthMask = enabled;
+      depthMasks.push(enabled);
+    },
     drawElements: (mode, count, type) => {
       if (mode !== gl.TRIANGLES || type !== gl.UNSIGNED_SHORT || count <= 0 || count % 3 !== 0) {
         fail('renderer issued an invalid indexed draw');
       }
       draws += 1;
+      drawLog.push({
+        alpha: uniformValues.alpha,
+        base: uniformValues.base ? [...uniformValues.base] : null,
+        count,
+        depthMask: currentDepthMask,
+        material: uniformValues.material,
+      });
     },
   };
 
@@ -85,6 +100,7 @@ function fakeWebGL2() {
     draws: { get: () => draws },
     uploads: { get: () => uploads },
     depthMasks: { get: () => [...depthMasks] },
+    drawLog: { get: () => drawLog.map((entry) => ({ ...entry })) },
     shaders: { get: () => [...shaders] },
   });
   return gl;
@@ -102,7 +118,7 @@ const glyphs = new Map([
   ['c8', { glyph: '♝', side: 'black' }],
   ['d8', { glyph: '♛', side: 'black' }],
   ['e8', { glyph: '♚', side: 'black' }],
-  ['e7', { glyph: '♟', side: 'black' }],
+  ['e5', { glyph: '♟', side: 'black' }],
 ]);
 
 const cells = [];
@@ -113,8 +129,8 @@ for (let rank = 8; rank >= 1; rank -= 1) {
     cells.push({
       dataset: { square },
       classList: classList(
-        square === 'e2' ? 'last-from' : '',
-        square === 'e4' ? 'last-to' : '',
+        square === 'e7' ? 'last-from' : '',
+        square === 'e5' ? 'last-to' : '',
       ),
       querySelector: (selector) => selector === '.piece' && piece
         ? {
@@ -219,6 +235,24 @@ if (gl.draws < 200) fail(`board/piece draw lifecycle is incomplete: ${gl.draws}`
 if (gl.depthMasks.length < 2 || gl.depthMasks[0] !== false || gl.depthMasks.at(-1) !== true) {
   fail(`move-highlight depth state was not safely restored: ${gl.depthMasks.join(',')}`);
 }
+const translucentHighlights = gl.drawLog.filter((draw) =>
+  draw.material === 4 && draw.depthMask === false && draw.alpha > 0 && draw.alpha < 1,
+);
+const opaqueBlackDraws = gl.drawLog.filter((draw) =>
+  draw.material === 7 && draw.depthMask === true && draw.alpha === 1,
+);
+const translucentBlackDraws = gl.drawLog.filter((draw) => draw.material === 7 && draw.alpha !== 1);
+if (translucentHighlights.length < 2) {
+  fail('under-piece last-move highlights were not rendered as translucent non-depth-writing geometry');
+}
+if (!opaqueBlackDraws.length || translucentBlackDraws.length) {
+  fail('the moved Black piece was not rendered as fully opaque smoked ebony after the highlight layer');
+}
+const firstHighlightIndex = gl.drawLog.findIndex((draw) => draw.material === 4 && draw.depthMask === false);
+const firstBlackIndex = gl.drawLog.findIndex((draw) => draw.material === 7 && draw.depthMask === true);
+if (firstHighlightIndex < 0 || firstBlackIndex <= firstHighlightIndex) {
+  fail('the moved Black piece did not render after the under-piece highlight layer');
+}
 if (window.CROWNFORGE_3D_DIAGNOSTICS?.engineAuthoritative !== true ||
     window.CROWNFORGE_3D_DIAGNOSTICS?.hitGrid !== 'fixed-dom-64') {
   fail('runtime diagnostics no longer preserve the engine-authoritative 64-square hit grid');
@@ -233,5 +267,6 @@ if (errors.length) {
 
 console.log(
   `Crownforge 3D runtime verification passed: ${cells.length} squares, ${gl.shaders.length} shaders, ` +
-  `${gl.uploads} buffer uploads, ${gl.draws} indexed draws and safe move-highlight depth restoration.`,
+  `${gl.uploads} buffer uploads, ${gl.draws} indexed draws, safe move-highlight depth restoration and ` +
+  `${opaqueBlackDraws.length} opaque smoked-ebony draws over a moved-Black-piece destination.`,
 );
