@@ -42,18 +42,22 @@ jobs:
           node --check src/app-stable.js
           node --check src/board3d.js
           node --check src/board3d-meshes.js
+          node --check src/board3d-materials.js
           node --check src/engine-stable.js
           node --check src/feedback.js
           node --check src/premium-soundtrack.js
           node --check src/cinematic-director.js
           node --check .github/scripts/verify-living-crown.mjs
           node --check .github/scripts/verify-history-navigation.mjs
+          node --check .github/scripts/verify-3d-runtime.mjs
 
       - name: Verify offline app-shell integrity
         run: node .github/scripts/verify-pwa-integrity.mjs
 
       - name: Verify production 3D renderer contracts
-        run: node .github/scripts/verify-3d-renderer.mjs
+        run: |
+          node .github/scripts/verify-3d-runtime.mjs
+          node .github/scripts/verify-3d-renderer.mjs
 
       - name: Verify adaptive Living Crown audio contracts
         run: node .github/scripts/verify-living-crown.mjs

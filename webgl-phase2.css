@@ -19,7 +19,7 @@
   transform: none;
   transition: opacity 140ms ease, filter 520ms ease;
   contain: strict;
-  filter: saturate(1.04) contrast(1.035) drop-shadow(0 14px 18px rgba(0,0,0,.28));
+  filter: brightness(1.025) saturate(1.025) contrast(1.01) drop-shadow(0 14px 18px rgba(0,0,0,.28));
 }
 
 .board {
@@ -64,6 +64,24 @@ html:not(.webgl-3d-ready) .board .piece {
 .webgl-3d-ready .rank-label,
 .webgl-3d-ready .file-label {
   z-index: 6;
+}
+
+/* V32 renders the gold move wash below the solid mesh in WebGL. Keep only an
+ * edge cue in the DOM layer so a dark moving piece can never be veiled. */
+.webgl-3d-ready .square.last-from::before,
+.webgl-3d-ready .square.last-to::before {
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+.webgl-3d-ready .square.last-from::before {
+  box-shadow: inset 0 0 0 2px rgba(230, 184, 82, .42) !important;
+}
+
+.webgl-3d-ready .square.last-to::before {
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 226, 143, .72),
+    inset 0 0 12px rgba(244, 193, 73, .12) !important;
 }
 
 body.terminal-strike #board-3d {
