@@ -19,6 +19,11 @@ const boardEl = document.querySelector("#board");
 const statusEl = document.querySelector("#status");
 const substatusEl = document.querySelector("#substatus");
 const historyEl = document.querySelector("#history");
+const timelineControlsEl = document.querySelector("#timeline-controls");
+const undoBtn = document.querySelector("#undo-move");
+const redoBtn = document.querySelector("#redo-move");
+const historyPositionEl = document.querySelector("#history-position");
+const historyDepthEl = document.querySelector("#history-depth");
 const restartBtn = document.querySelector("#restart");
 const claimDrawBtn = document.querySelector("#claim-draw");
 const promotionDialog = document.querySelector("#promotion-dialog");
@@ -26,10 +31,12 @@ const victory = document.querySelector("#victory");
 const victoryTitle = document.querySelector("#victory-title");
 const victoryText = document.querySelector("#victory-text");
 const rematchBtn = document.querySelector("#rematch");
+const terminalUndoBtn = document.querySelector("#undo-terminal");
 
 if (!boardEl || !statusEl || !substatusEl || !historyEl || !restartBtn ||
     !claimDrawBtn || !promotionDialog || !victory || !victoryTitle ||
-    !victoryText || !rematchBtn) {
+    !victoryText || !rematchBtn || !timelineControlsEl || !undoBtn ||
+    !redoBtn || !historyPositionEl || !historyDepthEl || !terminalUndoBtn) {
   throw new Error("Crownforge UI bootstrap failed: required element missing.");
 }
 
@@ -40,12 +47,17 @@ const restoredSession = loadSession();
 let game = restoredSession.game;
 let selected = null;
 let selectedMoves = [];
-let lastMove = restoredSession.lastMove;
+let displayMove = restoredSession.lastMove;
+let moveTimeline = [...(
+  restoredSession.timelineMoves ?? game.moveHistory.map((move) => move.toString())
+)];
+let historyCursor = restoredSession.timelineCursor ?? game.moveHistory.length;
 let claimedDrawType = restoredSession.claimedDrawType;
 let inputLocked = false;
 let geometryLock = null;
 let restoredNoticePending = restoredSession.restored;
 let discardedNoticePending = restoredSession.discarded;
+let timelineEffectTimer = 0;
 
 const cellViews = new Map();
 
@@ -196,7 +208,121 @@ function createFixedBoardGrid() {
 }
 
 function persistCurrentGame() {
-  saveSession(game, claimedDrawType);
+  saveSession(
+    game,
+    claimedDrawType,
+    globalThis.localStorage,
+    { moves: moveTimeline, cursor: historyCursor },
+  );
+}
+
+function updateTimelineControls() {
+  const busy = inputLocked || promotionDialog.open;
+  const canUndo = !busy && historyCursor > 0;
+  const canRedo = !busy && historyCursor < moveTimeline.length;
+
+  undoBtn.disabled = !canUndo;
+  redoBtn.disabled = !canRedo;
+  terminalUndoBtn.disabled = !canUndo;
+  timelineControlsEl.dataset.canUndo = String(canUndo);
+  timelineControlsEl.dataset.canRedo = String(canRedo);
+  timelineControlsEl.dataset.cursor = String(historyCursor);
+  timelineControlsEl.dataset.depth = String(moveTimeline.length);
+
+  historyPositionEl.textContent = historyCursor === 0
+    ? "START"
+    : `MOVE ${historyCursor}`;
+  historyDepthEl.textContent = `${historyCursor} / ${moveTimeline.length}`;
+  undoBtn.title = canUndo
+    ? `Back to move ${historyCursor - 1}`
+    : "No earlier move";
+  redoBtn.title = canRedo
+    ? `Forward to move ${historyCursor + 1}`
+    : "No later move";
+
+  window.CROWNFORGE_HISTORY = Object.freeze({
+    cursor: historyCursor,
+    depth: moveTimeline.length,
+    canUndo,
+    canRedo,
+  });
+}
+
+function hideTerminalPresentation() {
+  victory.classList.remove("show");
+  document.body.classList.remove("cinematic");
+}
+
+function rebuildAuthoritativeGame(cursor) {
+  const rebuiltGame = new ChessGame();
+  let rebuiltLastMove = null;
+
+  for (const token of moveTimeline.slice(0, cursor)) {
+    if (rebuiltGame.outcome.isTerminal) {
+      throw new Error("History replay attempted to continue after a terminal state.");
+    }
+    const replayMove = rebuiltGame.getLegalMoves()
+      .find((candidate) => candidate.toString() === token);
+    if (!replayMove) {
+      throw new Error(`History replay rejected illegal move: ${token}`);
+    }
+    rebuiltGame.play(replayMove);
+    rebuiltLastMove = replayMove;
+  }
+
+  return { game: rebuiltGame, lastMove: rebuiltLastMove };
+}
+
+function playTimelineEffect(direction) {
+  window.clearTimeout(timelineEffectTimer);
+  timelineControlsEl.dataset.action = "";
+  window.requestAnimationFrame(() => {
+    timelineControlsEl.dataset.action = direction;
+    timelineEffectTimer = window.setTimeout(() => {
+      timelineControlsEl.dataset.action = "";
+    }, 440);
+  });
+}
+
+async function navigateHistory(delta) {
+  if (inputLocked || promotionDialog.open || !Number.isInteger(delta) || Math.abs(delta) !== 1) {
+    return;
+  }
+
+  const nextCursor = historyCursor + delta;
+  if (nextCursor < 0 || nextCursor > moveTimeline.length) return;
+
+  const undoneMove = delta < 0 ? game.moveHistory.at(-1) ?? null : null;
+  inputLocked = true;
+  updateTimelineControls();
+
+  try {
+    const rebuilt = rebuildAuthoritativeGame(nextCursor);
+    game = rebuilt.game;
+    historyCursor = nextCursor;
+    displayMove = delta < 0 && undoneMove
+      ? { from: undoneMove.to, to: undoneMove.from }
+      : rebuilt.lastMove;
+    claimedDrawType = null;
+    selected = null;
+    selectedMoves = [];
+    hideTerminalPresentation();
+    persistCurrentGame();
+    render();
+    playTimelineEffect(delta < 0 ? "back" : "forward");
+    publishAudioEvent("history", {
+      direction: delta < 0 ? "back" : "forward",
+      cursor: historyCursor,
+      depth: moveTimeline.length,
+    });
+    if (game.outcome.isTerminal) await showTerminal();
+  } catch (error) {
+    console.error("Crownforge history navigation failed; authoritative state was preserved.", error);
+    substatusEl.textContent = "History navigation unavailable — game state preserved";
+  } finally {
+    inputLocked = false;
+    updateTimelineControls();
+  }
 }
 
 function render() {
@@ -216,8 +342,8 @@ function render() {
       (square.file + square.rank) % 2 ? "light" : "dark",
     ];
 
-    if (lastMove?.from.index === square.index) classes.push("last-from");
-    if (lastMove?.to.index === square.index) classes.push("last-to");
+    if (displayMove?.from.index === square.index) classes.push("last-from");
+    if (displayMove?.to.index === square.index) classes.push("last-to");
     if (selected?.index === square.index) classes.push("selected");
     if (legalTargets.has(square.index)) {
       classes.push(piece ? "capture-target" : "legal-target");
@@ -276,6 +402,7 @@ function render() {
     item.textContent = blackMove ? `${whiteMove}  ${blackMove}` : whiteMove;
     historyEl.append(item);
   }
+  updateTimelineControls();
 }
 
 function choosePromotion(candidates) {
@@ -346,7 +473,15 @@ async function onSquare(square) {
 
   let move = candidates[0];
   if (candidates.some((candidate) => candidate.flags & MoveFlags.Promotion)) {
-    const chosen = await choosePromotion(candidates);
+    inputLocked = true;
+    updateTimelineControls();
+    let chosen;
+    try {
+      chosen = await choosePromotion(candidates);
+    } finally {
+      inputLocked = false;
+      updateTimelineControls();
+    }
     if (!chosen) return;
     move = chosen;
   }
@@ -356,7 +491,9 @@ async function onSquare(square) {
     const movingPiece = game.position.at(move.from);
     if (!movingPiece) throw new Error("Engine-approved move has no source piece.");
     game.play(move);
-    lastMove = move;
+    moveTimeline = [...moveTimeline.slice(0, historyCursor), move.toString()];
+    historyCursor += 1;
+    displayMove = move;
     claimedDrawType = null;
     selected = null;
     selectedMoves = [];
@@ -382,11 +519,19 @@ async function onSquare(square) {
     if (game.outcome.isTerminal) await showTerminal();
   } finally {
     inputLocked = false;
+    updateTimelineControls();
   }
 }
 
 async function showTerminal() {
+  const expectedMoveCount = game.moveHistory.length;
+  const expectedStatus = game.outcome.status;
   await new Promise((resolve) => setTimeout(resolve, 350));
+  if (!game.outcome.isTerminal ||
+      game.moveHistory.length !== expectedMoveCount ||
+      game.outcome.status !== expectedStatus) {
+    return;
+  }
   document.body.classList.add("cinematic");
   const winner = game.outcome.winner === null
     ? null
@@ -406,9 +551,11 @@ async function showTerminal() {
 function restart() {
   clearSession();
   game = new ChessGame();
+  moveTimeline = [];
+  historyCursor = 0;
   selected = null;
   selectedMoves = [];
-  lastMove = null;
+  displayMove = null;
   claimedDrawType = null;
   inputLocked = false;
   restoredNoticePending = false;
@@ -422,6 +569,9 @@ function restart() {
 
 restartBtn.addEventListener("click", restart);
 rematchBtn.addEventListener("click", restart);
+undoBtn.addEventListener("click", () => void navigateHistory(-1));
+redoBtn.addEventListener("click", () => void navigateHistory(1));
+terminalUndoBtn.addEventListener("click", () => void navigateHistory(-1));
 claimDrawBtn.addEventListener("click", () => {
   if (game.outcome.canClaimThreefoldRepetition) {
     game.claimDraw(DrawClaimType.ThreefoldRepetition);
@@ -432,6 +582,7 @@ claimDrawBtn.addEventListener("click", () => {
   } else {
     return;
   }
+  moveTimeline = moveTimeline.slice(0, historyCursor);
   persistCurrentGame();
   render();
   publishAudioEvent("terminal", { claim: claimedDrawType });
