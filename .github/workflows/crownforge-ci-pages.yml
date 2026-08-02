@@ -46,13 +46,15 @@ jobs:
           find src -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
           node --check service-worker.js
           node --check .github/scripts/verify-release.mjs
-          node --check .github/scripts/verify-living-crown.mjs
+          node --check .github/scripts/generate-sonic-forge.mjs
+          node --check .github/scripts/verify-sonic-forge.mjs
           node --check .github/scripts/verify-history-navigation.mjs
           node --check .github/scripts/verify-3d-runtime.mjs
           node --check src/board3d-materials.js
           node .github/scripts/verify-3d-runtime.mjs
           node .github/scripts/verify-3d-renderer.mjs
-          node .github/scripts/verify-living-crown.mjs
+          node .github/scripts/generate-sonic-forge.mjs --check
+          node .github/scripts/verify-sonic-forge.mjs
           node .github/scripts/verify-history-navigation.mjs
           node CrownforgeChess_WebCheckpoint1/dist/tests/run-tests.js
           node --input-type=module <<'NODE'
@@ -82,6 +84,7 @@ jobs:
           find site/src -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
           node --check site/service-worker.js
           node .github/scripts/verify-3d-runtime.mjs site
+          node .github/scripts/verify-sonic-forge.mjs site
           node .github/scripts/verify-release.mjs site
           node --input-type=module <<'NODE'
           import { ChessGame, Side } from './site/src/engine-stable.js';

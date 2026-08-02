@@ -31,8 +31,10 @@ for (const file of [
   'offline-status.css',
   'src/fullscreen-control.js',
   'fullscreen-control.css',
-  'src/premium-soundtrack.js',
-  'premium-soundtrack.css',
+  'src/sonic-forge.js',
+  'sonic-forge.css',
+  'public/audio/crownforge-sonic-forge-v33.wav',
+  'public/audio/crownforge-sonic-forge-v33.json',
 ]) {
   if (!exists(file)) fail(`required file is missing: ${file}`);
 }
@@ -99,9 +101,11 @@ for (const contract of [
   if (!contract[1].test(app)) fail(`app contract missing: ${contract[0]}`);
 }
 for (const contract of [
-  ['immutable audio event payload', /Object\.freeze\(\{[\s\S]*?version:\s*1/],
+  ['immutable audio event payload V2', /Object\.freeze\(\{[\s\S]*?version:\s*2/],
   ['engine-approved audio event', /game\.play\(move\)[\s\S]*publishAudioEvent\(["']move["']/],
   ['capture audio metadata', /capture:\s*move\.isCapture/],
+  ['captured-piece audio metadata', /capturedPiece:\s*capturedPiece\s*\?/],
+  ['move-distance audio metadata', /distance:\s*audioMoveDistance/],
   ['castling audio metadata', /MoveFlags\.CastleKingSide[\s\S]*MoveFlags\.CastleQueenSide/],
   ['promotion audio metadata', /pieceName\(move\.promotion\)/],
 ]) {
@@ -208,44 +212,48 @@ if (/ChessGame|makeMove|getLegalMoves/.test(fullscreenControl)) {
   fail('fullscreen control must remain presentation-only');
 }
 
-const premiumSoundtrack = read('src/premium-soundtrack.js');
+const sonicForge = read('src/sonic-forge.js');
 for (const contract of [
-  ['dedicated soundtrack target', /querySelector\(["']#soundtrack-toggle["']\)/],
+  ['dedicated sound target', /querySelector\(["']#sound-toggle["']\)/],
   ['user-gesture activation', /addEventListener\(["']pointerdown["']/],
   ['keyboard activation', /addEventListener\(["']keydown["']/],
   ['Web Audio feature detection', /window\.AudioContext\s*\|\|\s*window\.webkitAudioContext/],
   ['master dynamics protection', /createDynamicsCompressor\s*\(/],
   ['soft peak limiter', /createWaveShaper\s*\(/],
-  ['local concert-hall reverb', /createConvolver\s*\(/],
-  ['adaptive audio event channel', /crownforge:audio/],
-  ['ambience stem', /ambienceInput/],
-  ['strategy stem', /strategyInput/],
-  ['tension stem', /tensionInput/],
+  ['local short-room reverb', /createConvolver\s*\(/],
+  ['authoritative audio event channel', /crownforge:audio/],
+  ['piece SFX bus', /pieceInput/],
+  ['situation SFX bus', /situationInput/],
+  ['48 kHz PCM bank decoding', /decodeAudioData\s*\(/],
+  ['buffer-source playback', /createBufferSource\s*\(/],
   ['persistent listener preference', /localStorage\.setItem\(STORAGE_KEY/],
   ['visibility lifecycle', /visibilitychange/],
   ['accessible pressed state', /aria-pressed/],
-  ['original score identity', /The Living Crown/],
-  ['checkmate cinematic score', /playCheckmateCue/],
-  ['draw resolution', /playDrawCue/],
-  ['history navigation cue', /playHistoryCue/],
+  ['Sonic Forge identity', /crownforge-sonic-forge/],
+  ['checkmate situation', /["']checkmate["']/],
+  ['draw situation', /["']draw["']/],
+  ['history navigation cues', /history-back[\s\S]*history-forward/],
 ]) {
-  if (!contract[1].test(premiumSoundtrack)) {
-    fail(`premium soundtrack contract missing: ${contract[0]}`);
+  if (!contract[1].test(sonicForge)) {
+    fail(`Sonic Forge contract missing: ${contract[0]}`);
   }
 }
-const masterGain = Number(premiumSoundtrack.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
-if (!Number.isFinite(masterGain) || masterGain < 0.3 || masterGain > 0.4) {
-  fail(`Living Crown master gain must be audibly raised but limiter-safe; found ${masterGain}`);
+const masterGain = Number(sonicForge.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
+if (!Number.isFinite(masterGain) || masterGain < 0.68 || masterGain > 0.8) {
+  fail(`Sonic Forge master gain must be tablet-audible but limiter-safe; found ${masterGain}`);
 }
-if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(premiumSoundtrack)) {
-  fail('premium soundtrack must remain presentation-only');
+if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(sonicForge)) {
+  fail('Sonic Forge must remain presentation-only');
 }
-if (/\bfetch\s*\(|XMLHttpRequest|WebSocket|https?:\/\//.test(premiumSoundtrack)) {
-  fail('premium soundtrack must remain original, local and offline-only');
+if (/https?:\/\//.test(sonicForge)) {
+  fail('Sonic Forge must remain local and offline-only');
 }
-for (const piece of ['Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King']) {
-  if (!new RegExp(`function\\s+play${piece}Cue\\s*\\(`).test(premiumSoundtrack)) {
-    fail(`premium soundtrack piece identity missing: ${piece}`);
+if (/const\s+BPM\b|const\s+SCORE\b|scheduleChord|duckMusic|The Living Crown/.test(sonicForge)) {
+  fail('Sonic Forge must not contain background music');
+}
+for (const piece of ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king']) {
+  if (!new RegExp(`${piece}:\\s*4`).test(sonicForge)) {
+    fail(`Sonic Forge piece identity missing four variants: ${piece}`);
   }
 }
 const feedback = read('src/feedback.js');
