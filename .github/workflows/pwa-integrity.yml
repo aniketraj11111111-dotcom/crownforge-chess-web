@@ -45,9 +45,10 @@ jobs:
           node --check src/board3d-materials.js
           node --check src/engine-stable.js
           node --check src/feedback.js
-          node --check src/premium-soundtrack.js
+          node --check src/sonic-forge.js
           node --check src/cinematic-director.js
-          node --check .github/scripts/verify-living-crown.mjs
+          node --check .github/scripts/generate-sonic-forge.mjs
+          node --check .github/scripts/verify-sonic-forge.mjs
           node --check .github/scripts/verify-history-navigation.mjs
           node --check .github/scripts/verify-3d-runtime.mjs
 
@@ -59,8 +60,10 @@ jobs:
           node .github/scripts/verify-3d-runtime.mjs
           node .github/scripts/verify-3d-renderer.mjs
 
-      - name: Verify adaptive Living Crown audio contracts
-        run: node .github/scripts/verify-living-crown.mjs
+      - name: Verify music-free Crownforge Sonic Forge audio
+        run: |
+          node .github/scripts/generate-sonic-forge.mjs --check
+          node .github/scripts/verify-sonic-forge.mjs
 
       - name: Verify unlimited engine-authoritative move history
         run: node .github/scripts/verify-history-navigation.mjs

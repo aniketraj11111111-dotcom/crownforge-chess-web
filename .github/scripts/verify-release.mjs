@@ -22,7 +22,7 @@ const required = [
   'offline-status.css',
   'install-control.css',
   'fullscreen-control.css',
-  'premium-soundtrack.css',
+  'sonic-forge.css',
   'cinematic-endgame.css',
   'last-move.css',
   'turn-guidance.css',
@@ -38,7 +38,9 @@ const required = [
   'src/fullscreen-control.js',
   'src/install-control.js',
   'src/connectivity-status.js',
-  'src/premium-soundtrack.js',
+  'src/sonic-forge.js',
+  'public/audio/crownforge-sonic-forge-v33.wav',
+  'public/audio/crownforge-sonic-forge-v33.json',
   'public/icon.svg',
 ];
 
@@ -59,14 +61,14 @@ if (errors.length === 0) {
 
   const versions = [...index.matchAll(/[?&]v=(\d+)/g)].map((match) => match[1]);
   const uniqueVersions = new Set(versions);
-  if (uniqueVersions.size !== 1 || !uniqueVersions.has('32')) {
-    fail(`index asset versions must all be v32; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
+  if (uniqueVersions.size !== 1 || !uniqueVersions.has('33')) {
+    fail(`index asset versions must all be v33; found: ${[...uniqueVersions].join(', ') || '<none>'}`);
   }
 
   for (const id of [
     'board', 'board-3d', 'status', 'substatus', 'history', 'restart',
     'claim-draw', 'promotion-dialog', 'victory', 'rematch',
-    'connection-status', 'soundtrack-toggle', 'fullscreen-app', 'install-app',
+    'connection-status', 'sound-toggle', 'fullscreen-app', 'install-app',
     'timeline-controls', 'undo-move', 'redo-move', 'history-position',
     'history-depth', 'undo-terminal',
   ]) {
@@ -116,24 +118,27 @@ if (errors.length === 0) {
     fail('versioned unlimited-history session contract is incomplete');
   }
 
-  const soundtrack = read('src/premium-soundtrack.js');
-  if (!/createDynamicsCompressor\s*\(/.test(soundtrack) ||
-      !/createWaveShaper\s*\(/.test(soundtrack) ||
-      !/createConvolver\s*\(/.test(soundtrack)) {
-    fail('premium soundtrack mastering graph is incomplete');
+  const sonicForge = read('src/sonic-forge.js');
+  if (!/createDynamicsCompressor\s*\(/.test(sonicForge) ||
+      !/createWaveShaper\s*\(/.test(sonicForge) ||
+      !/createConvolver\s*\(/.test(sonicForge)) {
+    fail('Sonic Forge mastering graph is incomplete');
   }
-  if (!/The Living Crown/.test(soundtrack) || !/crownforge:audio/.test(soundtrack)) {
-    fail('adaptive Living Crown score contract is missing');
+  if (!/crownforge-sonic-forge/.test(sonicForge) || !/crownforge:audio/.test(sonicForge)) {
+    fail('Crownforge Sonic Forge contract is missing');
   }
-  if (!/function\s+playHistoryCue\s*\(/.test(soundtrack)) {
-    fail('Living Crown history-navigation cue is missing');
+  if (!/history-back/.test(sonicForge) || !/history-forward/.test(sonicForge)) {
+    fail('Sonic Forge history-navigation cues are missing');
   }
-  if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(soundtrack)) {
-    fail('premium soundtrack attempted to own chess state');
+  if (/ChessGame|makeMove|getLegalMoves|applyLegalMove|generateLegalMoves/.test(sonicForge)) {
+    fail('Sonic Forge attempted to own chess state');
   }
-  const masterGain = Number(soundtrack.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
-  if (!Number.isFinite(masterGain) || masterGain < 0.3 || masterGain > 0.4) {
-    fail(`Living Crown master gain is outside its limiter-safe audible range: ${masterGain}`);
+  if (/const\s+BPM\b|const\s+SCORE\b|scheduleChord|duckMusic|The Living Crown/.test(sonicForge)) {
+    fail('Sonic Forge still contains a background-music system');
+  }
+  const masterGain = Number(sonicForge.match(/const\s+MASTER_GAIN\s*=\s*([\d.]+)/)?.[1]);
+  if (!Number.isFinite(masterGain) || masterGain < 0.68 || masterGain > 0.8) {
+    fail(`Sonic Forge master gain is outside its limiter-safe audible range: ${masterGain}`);
   }
   const feedback = read('src/feedback.js');
   const cinematicDirector = read('src/cinematic-director.js');
@@ -145,18 +150,20 @@ if (errors.length === 0) {
   }
 
   const worker = read('service-worker.js');
-  if (!/crownforge-v32-premium-ebony-board/.test(worker)) fail('service-worker cache is not the v32 premium visual shell');
+  if (!/crownforge-v33-sonic-forge/.test(worker)) fail('service-worker cache is not the v33 Sonic Forge shell');
   for (const asset of [
     './index.html',
-    './history-controls.css?v=32',
-    './production-board.css?v=32',
-    './src/app-stable.js?v=32',
-    './src/board3d.js?v=32',
-    './src/board3d-materials.js?v=32',
-    './src/premium-soundtrack.js?v=32',
-    './premium-soundtrack.css?v=32',
+    './history-controls.css?v=33',
+    './production-board.css?v=33',
+    './src/app-stable.js?v=33',
+    './src/board3d.js?v=33',
+    './src/board3d-materials.js?v=33',
+    './src/sonic-forge.js?v=33',
+    './sonic-forge.css?v=33',
+    './public/audio/crownforge-sonic-forge-v33.wav',
+    './public/audio/crownforge-sonic-forge-v33.json',
     './src/engine-stable.js',
-    './manifest.webmanifest?v=32',
+    './manifest.webmanifest?v=33',
   ]) {
     if (!worker.includes(JSON.stringify(asset))) fail(`offline shell is missing: ${asset}`);
   }

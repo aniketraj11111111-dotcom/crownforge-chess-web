@@ -91,6 +91,10 @@ function pieceName(type) {
   return typeof name === "string" ? name.toLowerCase() : null;
 }
 
+function audioMoveDistance(from, to) {
+  return Math.max(Math.abs(from.file - to.file), Math.abs(from.rank - to.rank));
+}
+
 function audioPhase(move = null) {
   if (game.outcome.isTerminal) return "terminal";
 
@@ -110,7 +114,7 @@ function publishAudioEvent(kind, detail = {}, move = null) {
   if (move?.flags & MoveFlags.Promotion) intensity += 0.1;
 
   const payload = Object.freeze({
-    version: 1,
+    version: 2,
     kind,
     sequence: game.moveHistory.length,
     phase,
@@ -490,6 +494,11 @@ async function onSquare(square) {
   try {
     const movingPiece = game.position.at(move.from);
     if (!movingPiece) throw new Error("Engine-approved move has no source piece.");
+    const enPassant = Boolean(move.flags & MoveFlags.EnPassant);
+    const capturedSquare = enPassant
+      ? Square.fromFileRank(move.to.file, move.from.rank)
+      : move.to;
+    const capturedPiece = move.isCapture ? game.position.at(capturedSquare) : null;
     game.play(move);
     moveTimeline = [...moveTimeline.slice(0, historyCursor), move.toString()];
     historyCursor += 1;
@@ -505,12 +514,21 @@ async function onSquare(square) {
       side: sideName(movingPiece.side),
       from: move.from.toString(),
       to: move.to.toString(),
+      distance: audioMoveDistance(move.from, move.to),
+      destinationMaterial: move.to.isLightSquare ? "maple" : "walnut",
       capture: move.isCapture,
-      enPassant: Boolean(move.flags & MoveFlags.EnPassant),
+      capturedPiece: capturedPiece ? pieceName(capturedPiece.type) : null,
+      capturedSide: capturedPiece ? sideName(capturedPiece.side) : null,
+      enPassant,
       castle: move.flags & MoveFlags.CastleKingSide
         ? "king-side"
         : move.flags & MoveFlags.CastleQueenSide
           ? "queen-side"
+          : null,
+      rookTo: move.flags & MoveFlags.CastleKingSide
+        ? Square.fromFileRank(5, move.from.rank).toString()
+        : move.flags & MoveFlags.CastleQueenSide
+          ? Square.fromFileRank(3, move.from.rank).toString()
           : null,
       promotion: move.flags & MoveFlags.Promotion
         ? pieceName(move.promotion)
