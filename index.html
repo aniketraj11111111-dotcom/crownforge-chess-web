@@ -5,20 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0b0908">
   <title>Crownforge Chess</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=30">
-  <link rel="stylesheet" href="./styles.css?v=30">
-  <link rel="stylesheet" href="./last-move.css?v=30">
-  <link rel="stylesheet" href="./turn-guidance.css?v=30">
-  <link rel="stylesheet" href="./premium-phase1.css?v=30">
-  <link rel="stylesheet" href="./webgl-phase2.css?v=30">
-  <link rel="stylesheet" href="./cinematic-endgame.css?v=30">
-  <link rel="stylesheet" href="./board-geometry-lock.css?v=30">
-  <link rel="stylesheet" href="./production-board.css?v=30">
-  <link rel="stylesheet" href="./touch-feedback.css?v=30">
-  <link rel="stylesheet" href="./offline-status.css?v=30">
-  <link rel="stylesheet" href="./install-control.css?v=30">
-  <link rel="stylesheet" href="./fullscreen-control.css?v=30">
-  <link rel="stylesheet" href="./premium-soundtrack.css?v=30">
+  <link rel="manifest" href="./manifest.webmanifest?v=31">
+  <link rel="stylesheet" href="./styles.css?v=31">
+  <link rel="stylesheet" href="./last-move.css?v=31">
+  <link rel="stylesheet" href="./turn-guidance.css?v=31">
+  <link rel="stylesheet" href="./premium-phase1.css?v=31">
+  <link rel="stylesheet" href="./webgl-phase2.css?v=31">
+  <link rel="stylesheet" href="./cinematic-endgame.css?v=31">
+  <link rel="stylesheet" href="./history-controls.css?v=31">
+  <link rel="stylesheet" href="./board-geometry-lock.css?v=31">
+  <link rel="stylesheet" href="./production-board.css?v=31">
+  <link rel="stylesheet" href="./touch-feedback.css?v=31">
+  <link rel="stylesheet" href="./offline-status.css?v=31">
+  <link rel="stylesheet" href="./install-control.css?v=31">
+  <link rel="stylesheet" href="./fullscreen-control.css?v=31">
+  <link rel="stylesheet" href="./premium-soundtrack.css?v=31">
 </head>
 <body>
   <main class="app-shell">
@@ -37,9 +38,29 @@
       <button id="install-app" class="install-app" type="button" hidden>Install App</button>
     </div>
     <section class="game-layout">
-      <div class="board-stage">
-        <canvas id="board-3d" data-ready="false" data-aligned="false" aria-hidden="true"></canvas>
-        <div id="board" class="board" aria-label="Fixed square 8 by 8 chessboard with White at the bottom"></div>
+      <div class="board-column">
+        <div class="board-stage">
+          <canvas id="board-3d" data-ready="false" data-aligned="false" aria-hidden="true"></canvas>
+          <div id="board" class="board" aria-label="Fixed square 8 by 8 chessboard with White at the bottom"></div>
+        </div>
+        <nav id="timeline-controls" class="timeline-controls" aria-label="Move history navigation" data-action="">
+          <button id="undo-move" class="timeline-button timeline-back" type="button" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 6 4 11l5 5M5 11h8a6 6 0 0 1 4.6 9.9"/>
+            </svg>
+            <span>BACK</span>
+          </button>
+          <div class="timeline-position" aria-live="polite" aria-atomic="true">
+            <strong id="history-position">START</strong>
+            <small id="history-depth">0 / 0</small>
+          </div>
+          <button id="redo-move" class="timeline-button timeline-forward" type="button" disabled>
+            <span>FORWARD</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m15 6 5 5-5 5m4-5h-8a6 6 0 0 0-4.6 9.9"/>
+            </svg>
+          </button>
+        </nav>
       </div>
       <aside>
         <div class="controls">
@@ -70,14 +91,17 @@
       <p>FINAL POSITION CONFIRMED</p>
       <h2 id="victory-title">CHECKMATE</h2>
       <strong id="victory-text">WHITE WINS</strong>
-      <button id="rematch">Rematch</button>
+      <div class="victory-actions">
+        <button id="undo-terminal" type="button">↶ Back Move</button>
+        <button id="rematch" type="button">Rematch</button>
+      </div>
     </div>
   </div>
 
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=30").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js?v=31").catch(() => {});
       });
     }
 
@@ -97,19 +121,19 @@
       }
     }, 5000);
   </script>
-  <script src="./src/feedback.js?v=30" defer></script>
-  <script src="./src/terminal-focus.js?v=30" defer></script>
-  <script src="./src/keyboard-nav.js?v=30" defer></script>
-  <script src="./src/promotion-focus.js?v=30" defer></script>
-  <script src="./src/board-semantics.js?v=30" defer></script>
-  <script src="./src/touch-feedback.js?v=30" defer></script>
-  <script src="./src/screen-wake.js?v=30" defer></script>
-  <script src="./src/connectivity-status.js?v=30" defer></script>
-  <script src="./src/fullscreen-control.js?v=30" defer></script>
-  <script src="./src/install-control.js?v=30" defer></script>
-  <script src="./src/cinematic-director.js?v=30" defer></script>
-  <script src="./src/premium-soundtrack.js?v=30" defer></script>
-  <script type="module" src="./src/board3d.js?v=30"></script>
-  <script type="module" src="./src/app-stable.js?v=30"></script>
+  <script src="./src/feedback.js?v=31" defer></script>
+  <script src="./src/terminal-focus.js?v=31" defer></script>
+  <script src="./src/keyboard-nav.js?v=31" defer></script>
+  <script src="./src/promotion-focus.js?v=31" defer></script>
+  <script src="./src/board-semantics.js?v=31" defer></script>
+  <script src="./src/touch-feedback.js?v=31" defer></script>
+  <script src="./src/screen-wake.js?v=31" defer></script>
+  <script src="./src/connectivity-status.js?v=31" defer></script>
+  <script src="./src/fullscreen-control.js?v=31" defer></script>
+  <script src="./src/install-control.js?v=31" defer></script>
+  <script src="./src/cinematic-director.js?v=31" defer></script>
+  <script src="./src/premium-soundtrack.js?v=31" defer></script>
+  <script type="module" src="./src/board3d.js?v=31"></script>
+  <script type="module" src="./src/app-stable.js?v=31"></script>
 </body>
 </html>
